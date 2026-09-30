@@ -1,10 +1,7 @@
 name: Update HJMI UAE Job Market Data
 
 on:
-  # Allows manual runs from GitHub Actions
   workflow_dispatch:
-
-  # Automatic daily update
   schedule:
     - cron: "0 3 * * *"
 
@@ -15,9 +12,14 @@ jobs:
   update-job-data:
     runs-on: ubuntu-latest
 
+    env:
+      JOOBLE_API_KEY: ${{ secrets.JOOBLE_API_KEY }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -30,23 +32,66 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Verify API configuration
+        run: |
+          python - <<'PY'
+          import os
+
+          if not os.getenv("JOOBLE_API_KEY"):
+              raise RuntimeError(
+                  "JOOBLE_API_KEY GitHub Secret is missing."
+              )
+
+          print("JOOBLE_API_KEY is configured.")
+          PY
+
       - name: Fetch and prepare UAE technology jobs
         run: |
           python prepare_data.py
 
       - name: Show generated dataset information
         run: |
-          echo "Generated data files:"
-          ls -lh data/
-          echo ""
-          echo "Clean dataset rows:"
           python - <<'PY'
           import pandas as pd
-          df = pd.read_csv("data/uae_tech_jobs_clean.csv")
+          from pathlib import Path
+
+          file = Path("data/uae_tech_jobs_clean.csv")
+
+          if not file.exists():
+              raise RuntimeError(
+                  "uae_tech_jobs_clean.csv was not generated."
+              )
+
+          df = pd.read_csv(file)
+
+          if df.empty:
+              raise RuntimeError(
+                  "Generated dataset is empty."
+              )
+
           print(f"Rows: {len(df):,}")
           print(f"Columns: {len(df.columns):,}")
-          print(df[["job_title", "company", "location"]].head())
+          print()
+
+          columns = [
+              column
+              for column in [
+                  "job_title",
+                  "company",
+                  "location",
+                  "salary",
+                  "publication_date",
+                  "source",
+              ]
+              if column in df.columns
+          ]
+
+          print(df[columns].head(10).to_string(index=False))
           PY
+
+      - name: Sync latest main branch
+        run: |
+          git pull --rebase origin main
 
       - name: Commit updated job market data
         run: |
@@ -58,6 +103,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No data changes detected."
           else
-            git commit -m "Automatically update UAE job market data"
-            git push
+            git commit -m "Automatically update HJMI UAE job market data"
+            git push origin main
           fi
