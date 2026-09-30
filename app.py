@@ -1,18 +1,17 @@
 import streamlit as st
 import pandas as pd
 from pathlib import Path
-from textwrap import dedent
 
 
 # ============================================================
 # HJMI — HASAN JOB MARKET INTELLIGENCE
-# UAE Job Market Data Analysis Dashboard
+# UAE Job Market Intelligence Dashboard
 # Developed by Hasan R. H. Abdalhadi
 # ============================================================
 
 
 # ============================================================
-# PAGE CONFIGURATION
+# PAGE CONFIG
 # ============================================================
 
 st.set_page_config(
@@ -24,147 +23,136 @@ st.set_page_config(
 
 
 # ============================================================
-# HTML HELPER
-# Prevents Streamlit from displaying HTML as a code block
+# GLOBAL CSS
 # ============================================================
 
-def html(content):
-    st.markdown(
-        dedent(content).strip(),
-        unsafe_allow_html=True,
-    )
-
-
-# ============================================================
-# GLOBAL DESIGN
-# ============================================================
-
-html("""
+st.html("""
 <style>
 
-/* ==========================================================
-   GLOBAL
-   ========================================================== */
+:root {
+    --bg-main: #06131f;
+    --bg-deep: #04101b;
+    --bg-card: #0b2030;
+    --gold: #d7ad58;
+    --gold-light: #f3d88d;
+    --text-main: #f8fafc;
+    --text-soft: #9aabba;
+    --border: rgba(148, 163, 184, 0.14);
+    --green: #00a86b;
+}
+
+/* ---------------- APP ---------------- */
 
 .stApp {
     background:
         radial-gradient(
-            circle at 88% 3%,
+            circle at 88% 4%,
             rgba(0, 115, 47, 0.10),
             transparent 25%
         ),
         radial-gradient(
-            circle at 12% 20%,
-            rgba(37, 99, 235, 0.09),
+            circle at 10% 25%,
+            rgba(37, 99, 235, 0.08),
             transparent 30%
         ),
         linear-gradient(
             135deg,
-            #04101c 0%,
-            #071827 48%,
+            #04101b 0%,
+            #071827 50%,
             #06131f 100%
         );
 
-    color: #f8fafc;
+    color: var(--text-main);
 }
 
 .block-container {
     max-width: 1500px;
-    padding-top: 1.5rem;
+    padding-top: 1.4rem;
     padding-bottom: 3rem;
 }
 
 
-/* ==========================================================
-   SIDEBAR
-   ========================================================== */
+/* ---------------- SIDEBAR ---------------- */
 
 section[data-testid="stSidebar"] {
     background:
         radial-gradient(
-            circle at 50% 5%,
+            circle at 50% 4%,
             rgba(0, 115, 47, 0.08),
-            transparent 25%
+            transparent 24%
         ),
         linear-gradient(
             180deg,
-            #04121f 0%,
-            #061a25 50%,
-            #04121f 100%
+            #04121f,
+            #061a25 55%,
+            #04121f
         );
 
-    border-right: 1px solid rgba(148, 163, 184, 0.13);
-}
-
-section[data-testid="stSidebar"] > div {
-    padding-top: 0.8rem;
+    border-right: 1px solid var(--border);
 }
 
 
-/* ==========================================================
-   LOGO
-   ========================================================== */
+/* ---------------- LOGO ---------------- */
 
-.logo-box {
+.hjmi-logo {
     text-align: center;
-    padding: 20px 5px 24px 5px;
+    padding: 22px 5px 25px;
 }
 
-.logo-circle {
-    width: 108px;
-    height: 108px;
+.hjmi-logo-box {
+    width: 110px;
+    height: 110px;
 
-    margin: auto;
-
-    border-radius: 30px;
+    margin: 0 auto;
 
     display: flex;
     align-items: center;
     justify-content: center;
 
+    border-radius: 30px;
+
     background:
+        radial-gradient(
+            circle at 35% 20%,
+            rgba(255,255,255,0.07),
+            transparent 30%
+        ),
         linear-gradient(
             145deg,
             rgba(212,168,83,0.10),
-            rgba(5,20,32,0.95)
+            rgba(5,20,32,0.98)
         );
 
-    border: 1px solid rgba(212,168,83,0.25);
+    border: 1px solid rgba(212,168,83,0.28);
 
     box-shadow:
-        0 15px 40px rgba(0,0,0,0.28),
+        0 16px 45px rgba(0,0,0,0.30),
         inset 0 1px 0 rgba(255,255,255,0.05);
 }
 
-.logo-letter {
+.hjmi-h {
     font-family: Georgia, serif;
     font-size: 72px;
     font-weight: bold;
-    line-height: 1;
 
     background:
         linear-gradient(
             120deg,
-            #fff4c7 5%,
+            #fff4c7,
             #d4a853 40%,
-            #ffffff 70%,
-            #c5943c 100%
+            #ffffff 68%,
+            #bd8733
         );
 
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-
-    filter:
-        drop-shadow(
-            0 4px 10px rgba(212,168,83,0.18)
-        );
 }
 
-.logo-uae-line {
-    width: 75px;
+.uae-line {
+    width: 76px;
     height: 4px;
 
-    margin: 12px auto 11px auto;
+    margin: 13px auto 11px;
 
     border-radius: 20px;
 
@@ -177,67 +165,64 @@ section[data-testid="stSidebar"] > div {
             #ffffff 50%,
             #00732f 50%,
             #00732f 75%,
-            #000000 75%
+            #111111 75%
         );
 }
 
-.logo-name {
-    color: #ffffff;
+.hjmi-name {
+    color: white;
 
-    font-size: 19px;
+    font-size: 18px;
     font-weight: 800;
 
     letter-spacing: 8px;
 
-    margin-left: 8px;
+    padding-left: 8px;
 }
 
-.logo-description {
+.hjmi-small {
     margin-top: 7px;
 
     color: #7190a5;
 
     font-size: 8px;
 
-    letter-spacing: 2.4px;
+    letter-spacing: 2.3px;
 }
 
 
-/* ==========================================================
-   HERO
-   ========================================================== */
+/* ---------------- HERO ---------------- */
 
 .hero {
     position: relative;
+
     overflow: hidden;
 
-    min-height: 330px;
+    min-height: 335px;
 
-    padding: 52px 48px 42px 48px;
+    padding: 52px 50px;
 
-    margin-bottom: 28px;
-
-    border-radius: 26px;
+    border-radius: 27px;
 
     border:
         1px solid rgba(212,168,83,0.24);
 
     background:
         radial-gradient(
-            circle at 87% 30%,
-            rgba(0,115,47,0.15),
+            circle at 88% 28%,
+            rgba(0,115,47,0.16),
             transparent 25%
         ),
         radial-gradient(
-            circle at 68% 100%,
+            circle at 72% 100%,
             rgba(37,99,235,0.12),
             transparent 30%
         ),
         linear-gradient(
             115deg,
-            rgba(4,16,28,0.99) 0%,
-            rgba(7,31,46,0.97) 55%,
-            rgba(8,47,54,0.94) 100%
+            #04111f 0%,
+            #072033 58%,
+            #08333b 100%
         );
 
     box-shadow:
@@ -250,16 +235,16 @@ section[data-testid="stSidebar"] > div {
 
     position: absolute;
 
-    width: 420px;
-    height: 420px;
+    width: 430px;
+    height: 430px;
 
     border-radius: 50%;
 
     border:
-        1px solid rgba(212,168,83,0.11);
+        1px solid rgba(212,168,83,0.12);
 
-    right: -125px;
-    top: -250px;
+    right: -130px;
+    top: -255px;
 }
 
 .hero::after {
@@ -267,28 +252,28 @@ section[data-testid="stSidebar"] > div {
 
     position: absolute;
 
-    width: 280px;
-    height: 280px;
+    width: 290px;
+    height: 290px;
 
     border-radius: 50%;
 
     border:
-        1px solid rgba(16,185,129,0.10);
+        1px solid rgba(0,168,107,0.11);
 
-    right: 80px;
-    bottom: -210px;
+    right: 70px;
+    bottom: -220px;
 }
 
-.hero-content {
+.hero-inner {
     position: relative;
     z-index: 2;
 }
 
 .hero-kicker {
-    color: #d4a853;
+    color: var(--gold);
 
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 800;
 
     letter-spacing: 4px;
 
@@ -296,20 +281,19 @@ section[data-testid="stSidebar"] > div {
 }
 
 .hero-title {
-    margin: 0;
+    max-width: 1000px;
 
-    color: #ffffff;
+    color: white;
 
-    font-size: clamp(36px, 4vw, 59px);
-
-    font-weight: 800;
+    font-size: clamp(37px, 4.2vw, 61px);
+    font-weight: 850;
 
     line-height: 1.05;
 
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
 }
 
-.gold {
+.hero-title span {
     background:
         linear-gradient(
             90deg,
@@ -327,17 +311,17 @@ section[data-testid="stSidebar"] > div {
 
     color: #cbd5e1;
 
-    font-size: clamp(16px, 2vw, 25px);
+    font-size: clamp(16px, 2vw, 24px);
 
     font-weight: 300;
 
     letter-spacing: 7px;
 }
 
-.mission {
+.hero-message {
     max-width: 850px;
 
-    margin-top: 29px;
+    margin-top: 30px;
 
     color: #dbe4ee;
 
@@ -348,17 +332,17 @@ section[data-testid="stSidebar"] > div {
     line-height: 1.8;
 }
 
-.author {
-    margin-top: 14px;
+.hero-author {
+    margin-top: 13px;
 
-    color: #d4a853;
+    color: var(--gold);
 
     font-size: 13px;
 
     letter-spacing: 2px;
 }
 
-.hero-tags {
+.hero-pills {
     display: flex;
     flex-wrap: wrap;
 
@@ -367,34 +351,32 @@ section[data-testid="stSidebar"] > div {
     margin-top: 25px;
 }
 
-.hero-tag {
+.hero-pill {
     padding: 8px 14px;
 
     border-radius: 30px;
-
-    color: #dce6ef;
-
-    font-size: 11px;
 
     background:
         rgba(255,255,255,0.045);
 
     border:
         1px solid rgba(255,255,255,0.08);
+
+    color: #dce6ef;
+
+    font-size: 11px;
 }
 
 
-/* ==========================================================
-   SECTION TITLES
-   ========================================================== */
+/* ---------------- SECTION ---------------- */
 
-.section {
-    margin-top: 29px;
+.section-head {
+    margin-top: 30px;
     margin-bottom: 17px;
 }
 
 .section-kicker {
-    color: #d4a853;
+    color: var(--gold);
 
     font-size: 10px;
     font-weight: 800;
@@ -403,28 +385,26 @@ section[data-testid="stSidebar"] > div {
 }
 
 .section-title {
+    margin-top: 4px;
+
     color: #f8fafc;
 
-    font-size: 26px;
+    font-size: 27px;
     font-weight: 750;
-
-    margin-top: 4px;
 }
 
-.section-description {
+.section-desc {
+    margin-top: 4px;
+
     color: #8292a7;
 
     font-size: 13px;
-
-    margin-top: 4px;
 }
 
 
-/* ==========================================================
-   METRIC CARDS
-   ========================================================== */
+/* ---------------- METRICS ---------------- */
 
-.metric-card {
+.metric-box {
     min-height: 150px;
 
     padding: 22px;
@@ -448,14 +428,26 @@ section[data-testid="stSidebar"] > div {
 
     box-shadow:
         0 12px 38px rgba(0,0,0,0.18);
+
+    transition:
+        transform 0.2s ease,
+        border-color 0.2s ease;
+}
+
+.metric-box:hover {
+    transform: translateY(-2px);
+
+    border-color:
+        rgba(212,168,83,0.30);
 }
 
 .metric-icon {
     font-size: 26px;
-    margin-bottom: 10px;
 }
 
 .metric-label {
+    margin-top: 10px;
+
     color: #91a3b6;
 
     font-size: 11px;
@@ -463,36 +455,39 @@ section[data-testid="stSidebar"] > div {
     letter-spacing: 0.8px;
 }
 
-.metric-value {
-    color: #ffffff;
+.metric-number {
+    margin-top: 3px;
+
+    color: white;
 
     font-size: 31px;
     font-weight: 800;
-
-    margin-top: 3px;
 }
 
 .metric-note {
+    margin-top: 6px;
+
     color: #64748b;
 
     font-size: 10px;
-
-    margin-top: 6px;
 }
 
 
-/* ==========================================================
-   INFORMATION CARDS
-   ========================================================== */
+/* ---------------- FEATURE CARDS ---------------- */
 
-.info-card {
-    min-height: 170px;
+.feature-card {
+    min-height: 175px;
 
     padding: 24px;
 
     border-radius: 19px;
 
     background:
+        radial-gradient(
+            circle at 100% 0%,
+            rgba(0,168,107,0.05),
+            transparent 35%
+        ),
         linear-gradient(
             145deg,
             rgba(11,31,47,0.94),
@@ -506,16 +501,22 @@ section[data-testid="stSidebar"] > div {
         0 12px 35px rgba(0,0,0,0.12);
 }
 
-.info-card h3 {
-    color: #ffffff;
-
-    font-size: 17px;
-
-    margin-top: 0;
-    margin-bottom: 9px;
+.feature-icon {
+    font-size: 25px;
 }
 
-.info-card p {
+.feature-title {
+    margin-top: 10px;
+
+    color: white;
+
+    font-size: 17px;
+    font-weight: 700;
+}
+
+.feature-text {
+    margin-top: 7px;
+
     color: #91a3b6;
 
     font-size: 13px;
@@ -524,12 +525,10 @@ section[data-testid="stSidebar"] > div {
 }
 
 
-/* ==========================================================
-   STATUS / EMPTY STATE
-   ========================================================== */
+/* ---------------- STATUS ---------------- */
 
 .status-card {
-    margin-top: 19px;
+    margin-top: 20px;
 
     padding: 22px;
 
@@ -557,14 +556,47 @@ section[data-testid="stSidebar"] > div {
 }
 
 
-/* ==========================================================
-   ABOUT DEVELOPER
-   ========================================================== */
+/* ---------------- ABOUT ---------------- */
 
-.developer-card {
-    padding: 26px;
+.about-card {
+    min-height: 190px;
 
+    padding: 25px;
+
+    border-radius: 19px;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(11,31,47,0.94),
+            rgba(7,24,37,0.95)
+        );
+
+    border:
+        1px solid rgba(148,163,184,0.12);
+}
+
+.about-title {
+    color: white;
+
+    font-size: 18px;
+    font-weight: 700;
+
+    margin-bottom: 10px;
+}
+
+.about-text {
+    color: #91a3b6;
+
+    font-size: 13px;
+
+    line-height: 1.75;
+}
+
+.developer {
     margin-top: 18px;
+
+    padding: 25px;
 
     border-radius: 19px;
 
@@ -580,42 +612,39 @@ section[data-testid="stSidebar"] > div {
 }
 
 .developer-name {
-    color: #ffffff;
+    color: white;
 
-    font-size: 19px;
-
+    font-size: 20px;
     font-weight: 700;
 }
 
 .developer-role {
-    color: #d4a853;
+    margin-top: 4px;
 
-    font-size: 12px;
+    color: var(--gold);
 
-    letter-spacing: 1px;
+    font-size: 11px;
 
-    margin-top: 5px;
+    letter-spacing: 2px;
 }
 
-.developer-text {
+.developer-details {
+    margin-top: 10px;
+
     color: #91a3b6;
 
     font-size: 12px;
 
     line-height: 1.7;
-
-    margin-top: 10px;
 }
 
 
-/* ==========================================================
-   FOOTER
-   ========================================================== */
+/* ---------------- FOOTER ---------------- */
 
-.footer {
+.hjmi-footer {
     margin-top: 50px;
 
-    padding: 30px 15px 8px 15px;
+    padding: 30px 10px 8px;
 
     text-align: center;
 
@@ -629,32 +658,17 @@ section[data-testid="stSidebar"] > div {
     line-height: 1.9;
 }
 
-.footer-brand {
-    color: #d4a853;
+.footer-name {
+    color: var(--gold);
 
     font-size: 13px;
-
     font-weight: 700;
 
     letter-spacing: 1px;
 }
 
 
-/* ==========================================================
-   STREAMLIT COMPONENTS
-   ========================================================== */
-
-div[data-testid="stPlotlyChart"] {
-    background:
-        rgba(8,25,39,0.65);
-
-    border:
-        1px solid rgba(148,163,184,0.10);
-
-    border-radius: 19px;
-
-    padding: 5px;
-}
+/* ---------------- STREAMLIT ---------------- */
 
 div[data-testid="stDataFrame"] {
     border:
@@ -663,11 +677,6 @@ div[data-testid="stDataFrame"] {
     border-radius: 16px;
 
     overflow: hidden;
-}
-
-div[role="radiogroup"] label {
-    padding-top: 3px;
-    padding-bottom: 3px;
 }
 
 hr {
@@ -684,14 +693,12 @@ footer {
 }
 
 
-/* ==========================================================
-   MOBILE
-   ========================================================== */
+/* ---------------- RESPONSIVE ---------------- */
 
 @media (max-width: 800px) {
 
     .hero {
-        padding: 34px 25px;
+        padding: 35px 25px;
     }
 
     .hero-title {
@@ -714,20 +721,20 @@ footer {
 
 with st.sidebar:
 
-    html("""
-    <div class="logo-box">
+    st.html("""
+    <div class="hjmi-logo">
 
-        <div class="logo-circle">
-            <div class="logo-letter">H</div>
+        <div class="hjmi-logo-box">
+            <div class="hjmi-h">H</div>
         </div>
 
-        <div class="logo-uae-line"></div>
+        <div class="uae-line"></div>
 
-        <div class="logo-name">
+        <div class="hjmi-name">
             HJMI
         </div>
 
-        <div class="logo-description">
+        <div class="hjmi-small">
             HASAN JOB MARKET INTELLIGENCE
         </div>
 
@@ -750,16 +757,17 @@ with st.sidebar:
         label_visibility="collapsed",
     )
 
-    st.markdown("---")
+    st.divider()
 
     st.markdown("### 🎯 Project Focus")
 
     st.caption(
-        "Exploring technology job-market data to transform "
-        "raw information into clear and useful career insights."
+        "Exploring technology job-market data "
+        "to transform raw information into clear "
+        "and useful career insights."
     )
 
-    st.markdown("---")
+    st.divider()
 
     st.markdown("### 🇦🇪 UAE Focus")
 
@@ -772,7 +780,7 @@ with st.sidebar:
 # DATA
 # ============================================================
 
-CLEAN_DATA_FILE = Path(
+DATA_FILE = Path(
     "data/uae_tech_jobs_clean.csv"
 )
 
@@ -780,17 +788,13 @@ CLEAN_DATA_FILE = Path(
 @st.cache_data
 def load_data():
 
-    if not CLEAN_DATA_FILE.exists():
+    if not DATA_FILE.exists():
         return pd.DataFrame()
 
     try:
-
-        return pd.read_csv(
-            CLEAN_DATA_FILE
-        )
+        return pd.read_csv(DATA_FILE)
 
     except Exception:
-
         return pd.DataFrame()
 
 
@@ -798,82 +802,89 @@ df = load_data()
 
 
 # ============================================================
-# COMPONENT FUNCTIONS
+# COMPONENTS
 # ============================================================
 
-def section_header(
+def section(
     kicker,
     title,
     description,
 ):
 
-    html(f"""
-    <div class="section">
+    st.html(
+        f"""
+        <div class="section-head">
 
-        <div class="section-kicker">
-            {kicker}
+            <div class="section-kicker">
+                {kicker}
+            </div>
+
+            <div class="section-title">
+                {title}
+            </div>
+
+            <div class="section-desc">
+                {description}
+            </div>
+
         </div>
-
-        <div class="section-title">
-            {title}
-        </div>
-
-        <div class="section-description">
-            {description}
-        </div>
-
-    </div>
-    """)
+        """
+    )
 
 
-def metric_card(
+def metric(
     icon,
     label,
     value,
     note,
 ):
 
-    html(f"""
-    <div class="metric-card">
+    st.html(
+        f"""
+        <div class="metric-box">
 
-        <div class="metric-icon">
-            {icon}
+            <div class="metric-icon">
+                {icon}
+            </div>
+
+            <div class="metric-label">
+                {label}
+            </div>
+
+            <div class="metric-number">
+                {value}
+            </div>
+
+            <div class="metric-note">
+                {note}
+            </div>
+
         </div>
-
-        <div class="metric-label">
-            {label}
-        </div>
-
-        <div class="metric-value">
-            {value}
-        </div>
-
-        <div class="metric-note">
-            {note}
-        </div>
-
-    </div>
-    """)
+        """
+    )
 
 
-def data_pending():
+def pending():
 
-    html("""
+    st.html("""
     <div class="status-card">
 
-        🛠️ <strong>Data pipeline ready.</strong>
+        🛠️
+        <strong>
+            Data pipeline ready.
+        </strong>
 
         <br><br>
 
-        The dashboard interface is active.
-        Market statistics and visualizations will appear
-        after the UAE technology dataset has been processed
-        and validated.
+        The HJMI interface is active.
+        Market statistics and visualizations
+        will appear after the UAE technology
+        dataset has been processed and validated.
 
         <br><br>
 
-        No placeholder market statistics are being presented
-        as real results.
+        No placeholder market statistics are
+        presented as real results.
 
     </div>
     """)
@@ -883,10 +894,10 @@ def data_pending():
 # HERO
 # ============================================================
 
-html("""
+st.html("""
 <div class="hero">
 
-    <div class="hero-content">
+    <div class="hero-inner">
 
         <div class="hero-kicker">
             ◇ DATA ANALYSIS PROJECT • UNITED ARAB EMIRATES
@@ -894,7 +905,7 @@ html("""
 
         <div class="hero-title">
             UAE JOB MARKET
-            <span class="gold">INTELLIGENCE</span>
+            <span>INTELLIGENCE</span>
             🇦🇪
         </div>
 
@@ -902,27 +913,27 @@ html("""
             DATA • TECHNOLOGY • OPPORTUNITIES
         </div>
 
-        <div class="mission">
+        <div class="hero-message">
             “Turning job market data into clear insights
             that help people understand where technology
             opportunities are heading.”
         </div>
 
-        <div class="author">
+        <div class="hero-author">
             — Hasan R. H. Abdalhadi —
         </div>
 
-        <div class="hero-tags">
+        <div class="hero-pills">
 
-            <div class="hero-tag">
+            <div class="hero-pill">
                 📍 UAE Tech Opportunities
             </div>
 
-            <div class="hero-tag">
+            <div class="hero-pill">
                 📊 Data-Driven Analysis
             </div>
 
-            <div class="hero-tag">
+            <div class="hero-pill">
                 💻 Computer Science
             </div>
 
@@ -935,157 +946,193 @@ html("""
 
 
 # ============================================================
+# CALCULATE REAL METRICS
+# ============================================================
+
+if df.empty:
+
+    total_jobs = "—"
+    unique_titles = "—"
+    skills_total = "—"
+    location_total = "—"
+
+else:
+
+    total_jobs = f"{len(df):,}"
+
+    if "job_title" in df.columns:
+
+        unique_titles = (
+            f"{df['job_title'].nunique():,}"
+        )
+
+    else:
+
+        unique_titles = "—"
+
+    if "location" in df.columns:
+
+        valid_locations = (
+            df["location"]
+            .replace("", pd.NA)
+            .dropna()
+        )
+
+        location_total = (
+            f"{valid_locations.nunique():,}"
+        )
+
+    else:
+
+        location_total = "—"
+
+    if "skills" in df.columns:
+
+        skill_set = set()
+
+        for item in df["skills"].dropna():
+
+            for skill in str(item).split(","):
+
+                skill = skill.strip()
+
+                if skill:
+                    skill_set.add(skill)
+
+        skills_total = f"{len(skill_set):,}"
+
+    else:
+
+        skills_total = "—"
+
+
+# ============================================================
 # OVERVIEW
 # ============================================================
 
 if page == "Overview":
 
-    section_header(
+    section(
         "✦ MARKET OVERVIEW",
         "UAE Technology Job Market",
-        "A data-driven overview of technology opportunities "
-        "represented in the project dataset.",
+        "A data-driven view of technology "
+        "opportunities represented in the dataset.",
     )
 
-    col1, col2, col3, col4 = st.columns(4)
+    c1, c2, c3, c4 = st.columns(4)
 
-    if df.empty:
+    with c1:
 
-        total_jobs = "—"
-        unique_titles = "—"
-        skills_count = "—"
-        locations_count = "—"
-
-    else:
-
-        total_jobs = f"{len(df):,}"
-
-        unique_titles = (
-            f"{df['job_title'].nunique():,}"
-            if "job_title" in df.columns
-            else "—"
-        )
-
-        if "skills" in df.columns:
-
-            all_skills = set()
-
-            for value in df["skills"].dropna():
-
-                for skill in str(value).split(","):
-
-                    skill = skill.strip()
-
-                    if skill:
-                        all_skills.add(skill)
-
-            skills_count = f"{len(all_skills):,}"
-
-        else:
-
-            skills_count = "—"
-
-        locations_count = (
-            f"{df['location'].nunique():,}"
-            if "location" in df.columns
-            else "—"
-        )
-
-    with col1:
-
-        metric_card(
+        metric(
             "💼",
             "TOTAL UAE TECH JOBS",
             total_jobs,
-            "Validated records in the dataset",
+            "Validated dataset records",
         )
 
-    with col2:
+    with c2:
 
-        metric_card(
+        metric(
             "🧑‍💻",
             "UNIQUE JOB TITLES",
             unique_titles,
             "Technology roles identified",
         )
 
-    with col3:
+    with c3:
 
-        metric_card(
+        metric(
             "⚡",
             "SKILLS IDENTIFIED",
-            skills_count,
+            skills_total,
             "Technical skills detected",
         )
 
-    with col4:
+    with c4:
 
-        metric_card(
+        metric(
             "📍",
             "UAE LOCATIONS",
-            locations_count,
+            location_total,
             "Locations represented",
         )
 
-    section_header(
+    section(
         "◈ INTELLIGENCE CENTER",
         "Explore the Market",
-        "Different perspectives on jobs, skills, "
-        "locations and career opportunities.",
+        "Explore jobs, skills, locations "
+        "and career information from different perspectives.",
     )
 
     a, b, c = st.columns(3)
 
     with a:
 
-        html("""
-        <div class="info-card">
+        st.html("""
+        <div class="feature-card">
 
-            <h3>📈 Job Analysis</h3>
+            <div class="feature-icon">
+                📈
+            </div>
 
-            <p>
-                Explore technology roles, job categories
-                and patterns found across the UAE
-                job-market dataset.
-            </p>
+            <div class="feature-title">
+                Job Analysis
+            </div>
+
+            <div class="feature-text">
+                Explore technology roles and patterns
+                represented across the UAE job-market data.
+            </div>
 
         </div>
         """)
 
     with b:
 
-        html("""
-        <div class="info-card">
+        st.html("""
+        <div class="feature-card">
 
-            <h3>⚡ Skills Intelligence</h3>
+            <div class="feature-icon">
+                ⚡
+            </div>
 
-            <p>
+            <div class="feature-title">
+                Skills Intelligence
+            </div>
+
+            <div class="feature-text">
                 Discover programming languages,
-                platforms and technologies appearing
-                across technology-related roles.
-            </p>
+                technologies and technical skills
+                identified from job information.
+            </div>
 
         </div>
         """)
 
     with c:
 
-        html("""
-        <div class="info-card">
+        st.html("""
+        <div class="feature-card">
 
-            <h3>📍 Location Insights</h3>
+            <div class="feature-icon">
+                📍
+            </div>
 
-            <p>
-                Understand how opportunities represented
-                in the dataset are distributed across
-                UAE locations.
-            </p>
+            <div class="feature-title">
+                Location Insights
+            </div>
+
+            <div class="feature-text">
+                Understand where technology
+                opportunities represented in the
+                dataset are located across the UAE.
+            </div>
 
         </div>
         """)
 
     if df.empty:
-        data_pending()
+        pending()
 
 
 # ============================================================
@@ -1094,152 +1141,155 @@ if page == "Overview":
 
 elif page == "Job Analysis":
 
-    section_header(
+    section(
         "✦ JOB ANALYSIS",
         "Technology Roles & Market Patterns",
-        "Explore job titles and technology-related "
-        "roles identified in the dataset.",
+        "Explore technology-related roles "
+        "identified in the processed dataset.",
     )
 
     if df.empty:
 
-        data_pending()
+        pending()
 
-    else:
+    elif "job_title" in df.columns:
 
-        st.success(
-            f"Dataset active — {len(df):,} "
-            "validated records loaded."
+        top_jobs = (
+            df["job_title"]
+            .dropna()
+            .value_counts()
+            .head(15)
         )
 
-        if "job_title" in df.columns:
+        st.markdown("#### 📊 Most Represented Job Titles")
 
-            top_titles = (
-                df["job_title"]
-                .dropna()
-                .value_counts()
-                .head(15)
-            )
-
-            st.bar_chart(top_titles)
+        st.bar_chart(
+            top_jobs,
+            horizontal=True,
+        )
 
 
 # ============================================================
-# SKILLS ANALYSIS
+# SKILLS
 # ============================================================
 
 elif page == "Skills Analysis":
 
-    section_header(
+    section(
         "◈ SKILLS INTELLIGENCE",
-        "In-Demand Technology Skills",
-        "Explore technologies and technical skills "
-        "identified from the available job information.",
+        "Technology Skills",
+        "Explore technologies and technical "
+        "skills identified in job information.",
     )
 
     if df.empty:
 
-        data_pending()
+        pending()
 
-    else:
+    elif "skills" in df.columns:
 
-        if "skills" in df.columns:
+        skills = (
+            df["skills"]
+            .dropna()
+            .str.split(",")
+            .explode()
+            .str.strip()
+        )
 
-            skills = (
-                df["skills"]
-                .dropna()
-                .str.split(",")
-                .explode()
-                .str.strip()
-            )
+        skills = skills[
+            skills != ""
+        ]
 
-            skills = skills[
-                skills != ""
-            ]
+        top_skills = (
+            skills
+            .value_counts()
+            .head(15)
+        )
 
-            top_skills = (
-                skills
-                .value_counts()
-                .head(15)
-            )
+        st.markdown(
+            "#### ⚡ Most Frequently Identified Skills"
+        )
 
-            st.bar_chart(top_skills)
-
-        else:
-
-            data_pending()
+        st.bar_chart(
+            top_skills,
+            horizontal=True,
+        )
 
 
 # ============================================================
-# LOCATION ANALYSIS
+# LOCATION
 # ============================================================
 
 elif page == "Location Analysis":
 
-    section_header(
+    section(
         "⌖ LOCATION INTELLIGENCE",
         "Where Are the Opportunities?",
-        "Explore locations represented across "
-        "the UAE technology-job dataset.",
+        "Explore the geographic distribution "
+        "of technology roles represented in the dataset.",
     )
 
     if df.empty:
 
-        data_pending()
+        pending()
 
-    else:
+    elif "location" in df.columns:
 
-        if "location" in df.columns:
+        locations = (
+            df["location"]
+            .replace("", pd.NA)
+            .dropna()
+            .value_counts()
+            .head(15)
+        )
 
-            locations = (
-                df["location"]
-                .replace("", pd.NA)
-                .dropna()
-                .value_counts()
-                .head(15)
-            )
+        st.markdown(
+            "#### 📍 Most Represented Locations"
+        )
 
-            st.bar_chart(locations)
-
-        else:
-
-            data_pending()
+        st.bar_chart(
+            locations,
+            horizontal=True,
+        )
 
 
 # ============================================================
-# SALARY ANALYSIS
+# SALARY
 # ============================================================
 
 elif page == "Salary Analysis":
 
-    section_header(
+    section(
         "◇ SALARY INTELLIGENCE",
         "Compensation Insights",
-        "Salary analysis is shown only when the "
-        "source data provides sufficiently usable "
-        "compensation information.",
+        "Compensation analysis is presented "
+        "only when reliable salary information "
+        "is available in the source data.",
     )
 
     if df.empty:
 
-        data_pending()
+        pending()
 
     elif "salary" not in df.columns:
 
-        data_pending()
+        pending()
 
     else:
 
-        html("""
+        st.html("""
         <div class="status-card">
 
-            💰 <strong>Salary data detected.</strong>
+            💰
+            <strong>
+                Salary information detected.
+            </strong>
 
             <br><br>
 
-            Compensation values will be normalized
-            and validated before salary comparisons
-            are displayed.
+            Salary values require normalization
+            and validation before meaningful
+            comparisons are presented.
 
         </div>
         """)
@@ -1251,15 +1301,16 @@ elif page == "Salary Analysis":
 
 elif page == "Data Explorer":
 
-    section_header(
+    section(
         "⌕ DATA EXPLORER",
         "Explore the Dataset",
-        "Inspect the processed records used by HJMI.",
+        "Search and inspect the processed "
+        "records used by HJMI.",
     )
 
     if df.empty:
 
-        data_pending()
+        pending()
 
     else:
 
@@ -1271,35 +1322,36 @@ elif page == "Data Explorer":
             ),
         )
 
-        filtered_df = df.copy()
+        filtered = df.copy()
 
         if search:
 
             search_lower = search.lower()
 
-            mask = filtered_df.astype(
-                str
-            ).apply(
-                lambda row:
-                row.str.lower()
-                .str.contains(
-                    search_lower,
-                    regex=False,
+            mask = (
+                filtered
+                .astype(str)
+                .apply(
+                    lambda row:
+                    row
+                    .str.lower()
+                    .str.contains(
+                        search_lower,
+                        regex=False,
+                    )
+                    .any(),
+                    axis=1,
                 )
-                .any(),
-                axis=1,
             )
 
-            filtered_df = filtered_df[
-                mask
-            ]
+            filtered = filtered[mask]
 
         st.caption(
-            f"{len(filtered_df):,} records displayed"
+            f"{len(filtered):,} records displayed"
         )
 
         st.dataframe(
-            filtered_df,
+            filtered,
             use_container_width=True,
             hide_index=True,
         )
@@ -1311,61 +1363,73 @@ elif page == "Data Explorer":
 
 elif page == "About":
 
-    section_header(
+    section(
         "✦ ABOUT HJMI",
         "Hasan Job Market Intelligence",
-        "A Computer Science and data-analysis project "
-        "focused on technology opportunities in the UAE.",
+        "A Computer Science and data-analysis "
+        "project focused on technology "
+        "opportunities in the UAE.",
     )
 
     left, right = st.columns([1.3, 1])
 
     with left:
 
-        html("""
-        <div class="info-card">
+        st.html("""
+        <div class="about-card">
 
-            <h3>🎯 Project Purpose</h3>
+            <div class="about-title">
+                🎯 Project Purpose
+            </div>
 
-            <p>
+            <div class="about-text">
+
                 HJMI explores job-market data and
-                transforms raw information into clearer
-                insights about technology roles, skills,
-                locations and career opportunities
-                represented in the UAE dataset.
-            </p>
+                transforms raw information into
+                clearer insights about technology
+                roles, skills, locations and career
+                opportunities represented in the UAE.
 
-            <p>
+                <br><br>
+
                 The project combines data acquisition,
-                cleaning, analysis, visualization and
-                dashboard development into one
+                cleaning, analysis, visualization
+                and dashboard development into one
                 practical workflow.
-            </p>
+
+            </div>
 
         </div>
         """)
 
     with right:
 
-        html("""
-        <div class="info-card">
+        st.html("""
+        <div class="about-card">
 
-            <h3>🧰 Technology Stack</h3>
+            <div class="about-title">
+                🧰 Technology Stack
+            </div>
 
-            <p>
-                🐍 Python<br>
-                📊 Pandas<br>
-                📈 Data Visualization<br>
-                🖥️ Streamlit<br>
-                🗃️ Open Data<br>
+            <div class="about-text">
+
+                🐍 Python
+                <br><br>
+                📊 Pandas
+                <br><br>
+                📈 Data Visualization
+                <br><br>
+                🖥️ Streamlit
+                <br><br>
                 💻 GitHub
-            </p>
+
+            </div>
 
         </div>
         """)
 
-    html("""
-    <div class="developer-card">
+    st.html("""
+    <div class="developer">
 
         <div class="developer-name">
             Hasan R. H. Abdalhadi
@@ -1375,10 +1439,15 @@ elif page == "About":
             COMPUTER SCIENCE ENGINEERING
         </div>
 
-        <div class="developer-text">
-            BITS Pilani – Dubai Campus<br>
-            Information Systems • Software • Data •
-            Digital Technologies
+        <div class="developer-details">
+
+            BITS Pilani – Dubai Campus
+
+            <br>
+
+            Information Systems • Software •
+            Data • Digital Technologies
+
         </div>
 
     </div>
@@ -1389,10 +1458,10 @@ elif page == "About":
 # FOOTER
 # ============================================================
 
-html("""
-<div class="footer">
+st.html("""
+<div class="hjmi-footer">
 
-    <div class="footer-brand">
+    <div class="footer-name">
         HJMI — HASAN JOB MARKET INTELLIGENCE
     </div>
 
@@ -1400,14 +1469,13 @@ html("""
 
     <br>
 
-    Python • Pandas • Data Visualization • Streamlit • GitHub
+    Python • Pandas • Data Visualization •
+    Streamlit • GitHub
 
     <br><br>
 
     Designed & Developed by
-    <strong style="color:#d6dde5;">
-        Hasan R. H. Abdalhadi
-    </strong>
+    Hasan R. H. Abdalhadi
 
 </div>
 """)
