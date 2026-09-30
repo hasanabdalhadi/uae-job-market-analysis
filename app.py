@@ -1,7 +1,15 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 from pathlib import Path
+from textwrap import dedent
+
+
+# ============================================================
+# HJMI — HASAN JOB MARKET INTELLIGENCE
+# UAE Job Market Data Analysis Dashboard
+# Developed by Hasan R. H. Abdalhadi
+# ============================================================
+
 
 # ============================================================
 # PAGE CONFIGURATION
@@ -14,375 +22,722 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+
 # ============================================================
-# CUSTOM DESIGN
+# HTML HELPER
+# Prevents Streamlit from displaying HTML as a code block
 # ============================================================
 
-st.markdown(
-    """
-    <style>
+def html(content):
+    st.markdown(
+        dedent(content).strip(),
+        unsafe_allow_html=True,
+    )
 
-    /* ---------- Main App ---------- */
 
-    .stApp {
-        background:
-            radial-gradient(circle at 85% 5%, rgba(15, 118, 110, 0.12), transparent 25%),
-            radial-gradient(circle at 15% 20%, rgba(37, 99, 235, 0.10), transparent 28%),
-            linear-gradient(135deg, #06111d 0%, #071827 45%, #07131f 100%);
-        color: #f8fafc;
-    }
+# ============================================================
+# GLOBAL DESIGN
+# ============================================================
 
-    .block-container {
-        max-width: 1500px;
-        padding-top: 1.6rem;
-        padding-bottom: 3rem;
-    }
+html("""
+<style>
 
-    /* ---------- Sidebar ---------- */
+/* ==========================================================
+   GLOBAL
+   ========================================================== */
 
-    section[data-testid="stSidebar"] {
-        background:
-            linear-gradient(180deg, #06111d 0%, #071b25 55%, #06111d 100%);
-        border-right: 1px solid rgba(148, 163, 184, 0.14);
-    }
-
-    section[data-testid="stSidebar"] > div {
-        padding-top: 1rem;
-    }
-
-    /* ---------- HJMI Logo ---------- */
-
-    .logo-box {
-        text-align: center;
-        padding: 25px 10px 22px 10px;
-        margin-bottom: 20px;
-    }
-
-    .logo-mark {
-        font-size: 70px;
-        line-height: 1;
-        font-weight: 800;
-        font-family: Georgia, serif;
-        background: linear-gradient(
-            120deg,
-            #f8fafc 20%,
-            #d4a853 45%,
-            #f7d98a 65%,
-            #ffffff 85%
+.stApp {
+    background:
+        radial-gradient(
+            circle at 88% 3%,
+            rgba(0, 115, 47, 0.10),
+            transparent 25%
+        ),
+        radial-gradient(
+            circle at 12% 20%,
+            rgba(37, 99, 235, 0.09),
+            transparent 30%
+        ),
+        linear-gradient(
+            135deg,
+            #04101c 0%,
+            #071827 48%,
+            #06131f 100%
         );
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        letter-spacing: -4px;
-        filter: drop-shadow(0 0 14px rgba(212, 168, 83, 0.15));
-    }
 
-    .logo-line {
-        width: 70px;
-        height: 3px;
-        margin: 10px auto;
-        background: linear-gradient(90deg, #ce1126, #ffffff, #00732f);
-        border-radius: 20px;
-    }
+    color: #f8fafc;
+}
 
-    .logo-title {
-        color: #ffffff;
-        font-size: 20px;
-        font-weight: 700;
-        letter-spacing: 7px;
-        margin-top: 8px;
-    }
+.block-container {
+    max-width: 1500px;
+    padding-top: 1.5rem;
+    padding-bottom: 3rem;
+}
 
-    .logo-subtitle {
-        color: #94a3b8;
-        font-size: 9px;
-        letter-spacing: 2.5px;
-        margin-top: 5px;
-    }
 
-    /* ---------- Hero ---------- */
+/* ==========================================================
+   SIDEBAR
+   ========================================================== */
+
+section[data-testid="stSidebar"] {
+    background:
+        radial-gradient(
+            circle at 50% 5%,
+            rgba(0, 115, 47, 0.08),
+            transparent 25%
+        ),
+        linear-gradient(
+            180deg,
+            #04121f 0%,
+            #061a25 50%,
+            #04121f 100%
+        );
+
+    border-right: 1px solid rgba(148, 163, 184, 0.13);
+}
+
+section[data-testid="stSidebar"] > div {
+    padding-top: 0.8rem;
+}
+
+
+/* ==========================================================
+   LOGO
+   ========================================================== */
+
+.logo-box {
+    text-align: center;
+    padding: 20px 5px 24px 5px;
+}
+
+.logo-circle {
+    width: 108px;
+    height: 108px;
+
+    margin: auto;
+
+    border-radius: 30px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(212,168,83,0.10),
+            rgba(5,20,32,0.95)
+        );
+
+    border: 1px solid rgba(212,168,83,0.25);
+
+    box-shadow:
+        0 15px 40px rgba(0,0,0,0.28),
+        inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+.logo-letter {
+    font-family: Georgia, serif;
+    font-size: 72px;
+    font-weight: bold;
+    line-height: 1;
+
+    background:
+        linear-gradient(
+            120deg,
+            #fff4c7 5%,
+            #d4a853 40%,
+            #ffffff 70%,
+            #c5943c 100%
+        );
+
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+
+    filter:
+        drop-shadow(
+            0 4px 10px rgba(212,168,83,0.18)
+        );
+}
+
+.logo-uae-line {
+    width: 75px;
+    height: 4px;
+
+    margin: 12px auto 11px auto;
+
+    border-radius: 20px;
+
+    background:
+        linear-gradient(
+            90deg,
+            #ce1126 0%,
+            #ce1126 25%,
+            #ffffff 25%,
+            #ffffff 50%,
+            #00732f 50%,
+            #00732f 75%,
+            #000000 75%
+        );
+}
+
+.logo-name {
+    color: #ffffff;
+
+    font-size: 19px;
+    font-weight: 800;
+
+    letter-spacing: 8px;
+
+    margin-left: 8px;
+}
+
+.logo-description {
+    margin-top: 7px;
+
+    color: #7190a5;
+
+    font-size: 8px;
+
+    letter-spacing: 2.4px;
+}
+
+
+/* ==========================================================
+   HERO
+   ========================================================== */
+
+.hero {
+    position: relative;
+    overflow: hidden;
+
+    min-height: 330px;
+
+    padding: 52px 48px 42px 48px;
+
+    margin-bottom: 28px;
+
+    border-radius: 26px;
+
+    border:
+        1px solid rgba(212,168,83,0.24);
+
+    background:
+        radial-gradient(
+            circle at 87% 30%,
+            rgba(0,115,47,0.15),
+            transparent 25%
+        ),
+        radial-gradient(
+            circle at 68% 100%,
+            rgba(37,99,235,0.12),
+            transparent 30%
+        ),
+        linear-gradient(
+            115deg,
+            rgba(4,16,28,0.99) 0%,
+            rgba(7,31,46,0.97) 55%,
+            rgba(8,47,54,0.94) 100%
+        );
+
+    box-shadow:
+        0 22px 70px rgba(0,0,0,0.30),
+        inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.hero::before {
+    content: "";
+
+    position: absolute;
+
+    width: 420px;
+    height: 420px;
+
+    border-radius: 50%;
+
+    border:
+        1px solid rgba(212,168,83,0.11);
+
+    right: -125px;
+    top: -250px;
+}
+
+.hero::after {
+    content: "";
+
+    position: absolute;
+
+    width: 280px;
+    height: 280px;
+
+    border-radius: 50%;
+
+    border:
+        1px solid rgba(16,185,129,0.10);
+
+    right: 80px;
+    bottom: -210px;
+}
+
+.hero-content {
+    position: relative;
+    z-index: 2;
+}
+
+.hero-kicker {
+    color: #d4a853;
+
+    font-size: 11px;
+    font-weight: 700;
+
+    letter-spacing: 4px;
+
+    margin-bottom: 15px;
+}
+
+.hero-title {
+    margin: 0;
+
+    color: #ffffff;
+
+    font-size: clamp(36px, 4vw, 59px);
+
+    font-weight: 800;
+
+    line-height: 1.05;
+
+    letter-spacing: 1px;
+}
+
+.gold {
+    background:
+        linear-gradient(
+            90deg,
+            #d4a853,
+            #fff0b3,
+            #d4a853
+        );
+
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.hero-subtitle {
+    margin-top: 11px;
+
+    color: #cbd5e1;
+
+    font-size: clamp(16px, 2vw, 25px);
+
+    font-weight: 300;
+
+    letter-spacing: 7px;
+}
+
+.mission {
+    max-width: 850px;
+
+    margin-top: 29px;
+
+    color: #dbe4ee;
+
+    font-size: 16px;
+
+    font-style: italic;
+
+    line-height: 1.8;
+}
+
+.author {
+    margin-top: 14px;
+
+    color: #d4a853;
+
+    font-size: 13px;
+
+    letter-spacing: 2px;
+}
+
+.hero-tags {
+    display: flex;
+    flex-wrap: wrap;
+
+    gap: 9px;
+
+    margin-top: 25px;
+}
+
+.hero-tag {
+    padding: 8px 14px;
+
+    border-radius: 30px;
+
+    color: #dce6ef;
+
+    font-size: 11px;
+
+    background:
+        rgba(255,255,255,0.045);
+
+    border:
+        1px solid rgba(255,255,255,0.08);
+}
+
+
+/* ==========================================================
+   SECTION TITLES
+   ========================================================== */
+
+.section {
+    margin-top: 29px;
+    margin-bottom: 17px;
+}
+
+.section-kicker {
+    color: #d4a853;
+
+    font-size: 10px;
+    font-weight: 800;
+
+    letter-spacing: 3.5px;
+}
+
+.section-title {
+    color: #f8fafc;
+
+    font-size: 26px;
+    font-weight: 750;
+
+    margin-top: 4px;
+}
+
+.section-description {
+    color: #8292a7;
+
+    font-size: 13px;
+
+    margin-top: 4px;
+}
+
+
+/* ==========================================================
+   METRIC CARDS
+   ========================================================== */
+
+.metric-card {
+    min-height: 150px;
+
+    padding: 22px;
+
+    border-radius: 19px;
+
+    background:
+        radial-gradient(
+            circle at 100% 0%,
+            rgba(37,99,235,0.08),
+            transparent 35%
+        ),
+        linear-gradient(
+            145deg,
+            rgba(14,35,52,0.96),
+            rgba(7,24,38,0.98)
+        );
+
+    border:
+        1px solid rgba(148,163,184,0.13);
+
+    box-shadow:
+        0 12px 38px rgba(0,0,0,0.18);
+}
+
+.metric-icon {
+    font-size: 26px;
+    margin-bottom: 10px;
+}
+
+.metric-label {
+    color: #91a3b6;
+
+    font-size: 11px;
+
+    letter-spacing: 0.8px;
+}
+
+.metric-value {
+    color: #ffffff;
+
+    font-size: 31px;
+    font-weight: 800;
+
+    margin-top: 3px;
+}
+
+.metric-note {
+    color: #64748b;
+
+    font-size: 10px;
+
+    margin-top: 6px;
+}
+
+
+/* ==========================================================
+   INFORMATION CARDS
+   ========================================================== */
+
+.info-card {
+    min-height: 170px;
+
+    padding: 24px;
+
+    border-radius: 19px;
+
+    background:
+        linear-gradient(
+            145deg,
+            rgba(11,31,47,0.94),
+            rgba(7,24,37,0.95)
+        );
+
+    border:
+        1px solid rgba(148,163,184,0.12);
+
+    box-shadow:
+        0 12px 35px rgba(0,0,0,0.12);
+}
+
+.info-card h3 {
+    color: #ffffff;
+
+    font-size: 17px;
+
+    margin-top: 0;
+    margin-bottom: 9px;
+}
+
+.info-card p {
+    color: #91a3b6;
+
+    font-size: 13px;
+
+    line-height: 1.7;
+}
+
+
+/* ==========================================================
+   STATUS / EMPTY STATE
+   ========================================================== */
+
+.status-card {
+    margin-top: 19px;
+
+    padding: 22px;
+
+    border-radius: 17px;
+
+    background:
+        linear-gradient(
+            90deg,
+            rgba(212,168,83,0.07),
+            rgba(16,185,129,0.035)
+        );
+
+    border:
+        1px solid rgba(212,168,83,0.20);
+
+    color: #dbe4ee;
+
+    font-size: 13px;
+
+    line-height: 1.7;
+}
+
+.status-card strong {
+    color: #f7d98a;
+}
+
+
+/* ==========================================================
+   ABOUT DEVELOPER
+   ========================================================== */
+
+.developer-card {
+    padding: 26px;
+
+    margin-top: 18px;
+
+    border-radius: 19px;
+
+    background:
+        linear-gradient(
+            120deg,
+            rgba(212,168,83,0.06),
+            rgba(7,28,43,0.94)
+        );
+
+    border:
+        1px solid rgba(212,168,83,0.17);
+}
+
+.developer-name {
+    color: #ffffff;
+
+    font-size: 19px;
+
+    font-weight: 700;
+}
+
+.developer-role {
+    color: #d4a853;
+
+    font-size: 12px;
+
+    letter-spacing: 1px;
+
+    margin-top: 5px;
+}
+
+.developer-text {
+    color: #91a3b6;
+
+    font-size: 12px;
+
+    line-height: 1.7;
+
+    margin-top: 10px;
+}
+
+
+/* ==========================================================
+   FOOTER
+   ========================================================== */
+
+.footer {
+    margin-top: 50px;
+
+    padding: 30px 15px 8px 15px;
+
+    text-align: center;
+
+    border-top:
+        1px solid rgba(148,163,184,0.12);
+
+    color: #60768a;
+
+    font-size: 11px;
+
+    line-height: 1.9;
+}
+
+.footer-brand {
+    color: #d4a853;
+
+    font-size: 13px;
+
+    font-weight: 700;
+
+    letter-spacing: 1px;
+}
+
+
+/* ==========================================================
+   STREAMLIT COMPONENTS
+   ========================================================== */
+
+div[data-testid="stPlotlyChart"] {
+    background:
+        rgba(8,25,39,0.65);
+
+    border:
+        1px solid rgba(148,163,184,0.10);
+
+    border-radius: 19px;
+
+    padding: 5px;
+}
+
+div[data-testid="stDataFrame"] {
+    border:
+        1px solid rgba(148,163,184,0.12);
+
+    border-radius: 16px;
+
+    overflow: hidden;
+}
+
+div[role="radiogroup"] label {
+    padding-top: 3px;
+    padding-bottom: 3px;
+}
+
+hr {
+    border-color:
+        rgba(148,163,184,0.12) !important;
+}
+
+#MainMenu {
+    visibility: hidden;
+}
+
+footer {
+    visibility: hidden;
+}
+
+
+/* ==========================================================
+   MOBILE
+   ========================================================== */
+
+@media (max-width: 800px) {
 
     .hero {
-        position: relative;
-        overflow: hidden;
-        padding: 42px 42px 38px 42px;
-        margin-bottom: 24px;
-        border: 1px solid rgba(212, 168, 83, 0.24);
-        border-radius: 24px;
-
-        background:
-            linear-gradient(
-                110deg,
-                rgba(4, 18, 32, 0.98) 0%,
-                rgba(7, 30, 45, 0.96) 55%,
-                rgba(10, 49, 57, 0.90) 100%
-            );
-
-        box-shadow:
-            0 20px 60px rgba(0, 0, 0, 0.28),
-            inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        padding: 34px 25px;
     }
 
-    .hero:before {
-        content: "";
-        position: absolute;
-        width: 330px;
-        height: 330px;
-        border: 1px solid rgba(212, 168, 83, 0.14);
-        border-radius: 50%;
-        right: -100px;
-        top: -180px;
+    .hero-title {
+        font-size: 36px;
     }
 
-    .hero:after {
-        content: "";
-        position: absolute;
-        width: 230px;
-        height: 230px;
-        border: 1px solid rgba(16, 185, 129, 0.10);
-        border-radius: 50%;
-        right: 30px;
-        bottom: -170px;
-    }
-
-    .eyebrow {
-        color: #d4a853;
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 4px;
-        margin-bottom: 13px;
-    }
-
-    .hero h1 {
-        margin: 0;
-        color: #ffffff;
-        font-size: 49px;
-        line-height: 1.05;
-        letter-spacing: 1px;
-    }
-
-    .hero h1 span {
-        background: linear-gradient(90deg, #d4a853, #f7d98a);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-    }
-
-    .hero h2 {
-        margin: 8px 0 22px 0;
-        color: #cbd5e1;
-        font-size: 26px;
-        font-weight: 300;
-        letter-spacing: 8px;
-    }
-
-    .mission {
-        max-width: 900px;
-        color: #dbe4ee;
-        font-size: 17px;
-        font-style: italic;
-        line-height: 1.7;
-        margin-bottom: 15px;
-    }
-
-    .author {
-        color: #d4a853;
-        font-size: 13px;
-        letter-spacing: 2px;
-    }
-
-    .uae-pill {
-        display: inline-block;
-        margin-top: 22px;
-        padding: 8px 15px;
-        border-radius: 50px;
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.09);
-        color: #e2e8f0;
-        font-size: 12px;
-    }
-
-    /* ---------- Section Titles ---------- */
-
-    .section-heading {
-        margin-top: 24px;
-        margin-bottom: 17px;
-    }
-
-    .section-kicker {
-        color: #d4a853;
-        font-size: 11px;
-        font-weight: 700;
+    .hero-subtitle {
         letter-spacing: 3px;
-        margin-bottom: 4px;
     }
 
-    .section-title {
-        color: #f8fafc;
-        font-size: 25px;
-        font-weight: 700;
-        margin: 0;
-    }
+}
 
-    .section-description {
-        color: #8292a7;
-        font-size: 13px;
-        margin-top: 4px;
-    }
+</style>
+""")
 
-    /* ---------- Metric Cards ---------- */
-
-    .metric-card {
-        min-height: 145px;
-        padding: 22px;
-        border-radius: 18px;
-        background:
-            linear-gradient(
-                145deg,
-                rgba(15, 35, 52, 0.96),
-                rgba(8, 25, 39, 0.96)
-            );
-        border: 1px solid rgba(148, 163, 184, 0.13);
-        box-shadow: 0 12px 35px rgba(0, 0, 0, 0.16);
-        transition: 0.2s ease;
-    }
-
-    .metric-card:hover {
-        transform: translateY(-2px);
-        border-color: rgba(212, 168, 83, 0.28);
-    }
-
-    .metric-icon {
-        font-size: 25px;
-        margin-bottom: 12px;
-    }
-
-    .metric-label {
-        color: #94a3b8;
-        font-size: 12px;
-        letter-spacing: 0.5px;
-    }
-
-    .metric-value {
-        color: #ffffff;
-        font-size: 30px;
-        font-weight: 800;
-        margin-top: 3px;
-    }
-
-    .metric-note {
-        color: #64748b;
-        font-size: 11px;
-        margin-top: 5px;
-    }
-
-    /* ---------- Information Cards ---------- */
-
-    .info-card {
-        min-height: 150px;
-        padding: 22px;
-        margin-bottom: 10px;
-        border-radius: 18px;
-        background: rgba(10, 29, 44, 0.78);
-        border: 1px solid rgba(148, 163, 184, 0.12);
-    }
-
-    .info-card h3 {
-        color: #ffffff;
-        font-size: 17px;
-        margin-top: 0;
-        margin-bottom: 8px;
-    }
-
-    .info-card p {
-        color: #94a3b8;
-        line-height: 1.65;
-        font-size: 13px;
-    }
-
-    /* ---------- Status ---------- */
-
-    .status-box {
-        padding: 17px 20px;
-        border-radius: 15px;
-        margin: 12px 0 20px 0;
-        background: rgba(212, 168, 83, 0.07);
-        border: 1px solid rgba(212, 168, 83, 0.20);
-        color: #dbe4ee;
-        font-size: 13px;
-    }
-
-    /* ---------- Footer ---------- */
-
-    .footer {
-        margin-top: 45px;
-        padding: 28px 15px 10px 15px;
-        border-top: 1px solid rgba(148, 163, 184, 0.12);
-        text-align: center;
-        color: #64748b;
-        font-size: 12px;
-        line-height: 1.8;
-    }
-
-    .footer strong {
-        color: #d4a853;
-    }
-
-    /* ---------- Streamlit Components ---------- */
-
-    div[data-testid="stPlotlyChart"] {
-        background: rgba(8, 25, 39, 0.60);
-        border: 1px solid rgba(148, 163, 184, 0.10);
-        border-radius: 18px;
-        padding: 5px;
-    }
-
-    div[data-testid="stDataFrame"] {
-        border: 1px solid rgba(148, 163, 184, 0.12);
-        border-radius: 15px;
-        overflow: hidden;
-    }
-
-    .stSelectbox label,
-    .stMultiSelect label {
-        color: #cbd5e1 !important;
-    }
-
-    #MainMenu {
-        visibility: hidden;
-    }
-
-    footer {
-        visibility: hidden;
-    }
-
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
 
 # ============================================================
-# SIDEBAR BRANDING
+# SIDEBAR
 # ============================================================
 
 with st.sidebar:
 
-    st.markdown(
-        """
-        <div class="logo-box">
-            <div class="logo-mark">H</div>
-            <div class="logo-line"></div>
-            <div class="logo-title">HJMI</div>
-            <div class="logo-subtitle">
-                HASAN JOB MARKET INTELLIGENCE
-            </div>
+    html("""
+    <div class="logo-box">
+
+        <div class="logo-circle">
+            <div class="logo-letter">H</div>
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+
+        <div class="logo-uae-line"></div>
+
+        <div class="logo-name">
+            HJMI
+        </div>
+
+        <div class="logo-description">
+            HASAN JOB MARKET INTELLIGENCE
+        </div>
+
+    </div>
+    """)
 
     st.markdown("### 🏠 Navigation")
 
     page = st.radio(
-        "Explore",
+        "Navigation",
         [
             "Overview",
             "Job Analysis",
@@ -400,116 +755,183 @@ with st.sidebar:
     st.markdown("### 🎯 Project Focus")
 
     st.caption(
-        "Exploring technology job-market data to transform raw "
-        "information into clear and useful career insights."
+        "Exploring technology job-market data to transform "
+        "raw information into clear and useful career insights."
     )
 
     st.markdown("---")
 
-    st.markdown("**🇦🇪 United Arab Emirates**")
-    st.caption("Technology • Data • Careers • Insights")
+    st.markdown("### 🇦🇪 UAE Focus")
+
+    st.caption(
+        "Technology • Data • Careers • Opportunities"
+    )
+
 
 # ============================================================
 # DATA
 # ============================================================
 
-DATA_FILE = Path("data/arab_jobs_raw.csv")
+CLEAN_DATA_FILE = Path(
+    "data/uae_tech_jobs_clean.csv"
+)
 
 
 @st.cache_data
-def load_local_data():
-    if DATA_FILE.exists():
-        try:
-            return pd.read_csv(DATA_FILE)
-        except Exception:
-            return pd.DataFrame()
+def load_data():
 
-    return pd.DataFrame()
+    if not CLEAN_DATA_FILE.exists():
+        return pd.DataFrame()
+
+    try:
+
+        return pd.read_csv(
+            CLEAN_DATA_FILE
+        )
+
+    except Exception:
+
+        return pd.DataFrame()
 
 
-df = load_local_data()
+df = load_data()
+
+
+# ============================================================
+# COMPONENT FUNCTIONS
+# ============================================================
+
+def section_header(
+    kicker,
+    title,
+    description,
+):
+
+    html(f"""
+    <div class="section">
+
+        <div class="section-kicker">
+            {kicker}
+        </div>
+
+        <div class="section-title">
+            {title}
+        </div>
+
+        <div class="section-description">
+            {description}
+        </div>
+
+    </div>
+    """)
+
+
+def metric_card(
+    icon,
+    label,
+    value,
+    note,
+):
+
+    html(f"""
+    <div class="metric-card">
+
+        <div class="metric-icon">
+            {icon}
+        </div>
+
+        <div class="metric-label">
+            {label}
+        </div>
+
+        <div class="metric-value">
+            {value}
+        </div>
+
+        <div class="metric-note">
+            {note}
+        </div>
+
+    </div>
+    """)
+
+
+def data_pending():
+
+    html("""
+    <div class="status-card">
+
+        🛠️ <strong>Data pipeline ready.</strong>
+
+        <br><br>
+
+        The dashboard interface is active.
+        Market statistics and visualizations will appear
+        after the UAE technology dataset has been processed
+        and validated.
+
+        <br><br>
+
+        No placeholder market statistics are being presented
+        as real results.
+
+    </div>
+    """)
+
 
 # ============================================================
 # HERO
 # ============================================================
 
-st.markdown(
-    """
-    <div class="hero">
+html("""
+<div class="hero">
 
-        <div class="eyebrow">
+    <div class="hero-content">
+
+        <div class="hero-kicker">
             ◇ DATA ANALYSIS PROJECT • UNITED ARAB EMIRATES
         </div>
 
-        <h1>
-            UAE JOB MARKET <span>INTELLIGENCE</span> 🇦🇪
-        </h1>
+        <div class="hero-title">
+            UAE JOB MARKET
+            <span class="gold">INTELLIGENCE</span>
+            🇦🇪
+        </div>
 
-        <h2>DATA • TECHNOLOGY • OPPORTUNITIES</h2>
+        <div class="hero-subtitle">
+            DATA • TECHNOLOGY • OPPORTUNITIES
+        </div>
 
         <div class="mission">
-            “Turning job market data into clear insights that help people
-            understand where technology opportunities are heading.”
+            “Turning job market data into clear insights
+            that help people understand where technology
+            opportunities are heading.”
         </div>
 
         <div class="author">
             — Hasan R. H. Abdalhadi —
         </div>
 
-        <div class="uae-pill">
-            📍 UAE Tech Opportunities &nbsp; • &nbsp;
-            📊 Data-Driven Analysis
+        <div class="hero-tags">
+
+            <div class="hero-tag">
+                📍 UAE Tech Opportunities
+            </div>
+
+            <div class="hero-tag">
+                📊 Data-Driven Analysis
+            </div>
+
+            <div class="hero-tag">
+                💻 Computer Science
+            </div>
+
         </div>
 
     </div>
-    """,
-    unsafe_allow_html=True,
-)
 
-# ============================================================
-# HELPER FUNCTIONS
-# ============================================================
-
-
-def section_header(kicker, title, description):
-    st.markdown(
-        f"""
-        <div class="section-heading">
-            <div class="section-kicker">{kicker}</div>
-            <div class="section-title">{title}</div>
-            <div class="section-description">{description}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def metric_card(icon, label, value, note):
-    st.markdown(
-        f"""
-        <div class="metric-card">
-            <div class="metric-icon">{icon}</div>
-            <div class="metric-label">{label}</div>
-            <div class="metric-value">{value}</div>
-            <div class="metric-note">{note}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def empty_chart_message():
-    st.markdown(
-        """
-        <div class="status-box">
-            🛠️ <strong>Data preparation in progress.</strong><br><br>
-            This dashboard is connected to the project data pipeline.
-            Metrics and visualizations will appear after the UAE dataset
-            has been downloaded, cleaned, and validated.
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+</div>
+""")
 
 
 # ============================================================
@@ -521,94 +943,150 @@ if page == "Overview":
     section_header(
         "✦ MARKET OVERVIEW",
         "UAE Technology Job Market",
-        "A clear overview of the dataset and the insights produced by the analysis.",
+        "A data-driven overview of technology opportunities "
+        "represented in the project dataset.",
     )
 
     col1, col2, col3, col4 = st.columns(4)
 
+    if df.empty:
+
+        total_jobs = "—"
+        unique_titles = "—"
+        skills_count = "—"
+        locations_count = "—"
+
+    else:
+
+        total_jobs = f"{len(df):,}"
+
+        unique_titles = (
+            f"{df['job_title'].nunique():,}"
+            if "job_title" in df.columns
+            else "—"
+        )
+
+        if "skills" in df.columns:
+
+            all_skills = set()
+
+            for value in df["skills"].dropna():
+
+                for skill in str(value).split(","):
+
+                    skill = skill.strip()
+
+                    if skill:
+                        all_skills.add(skill)
+
+            skills_count = f"{len(all_skills):,}"
+
+        else:
+
+            skills_count = "—"
+
+        locations_count = (
+            f"{df['location'].nunique():,}"
+            if "location" in df.columns
+            else "—"
+        )
+
     with col1:
+
         metric_card(
             "💼",
             "TOTAL UAE TECH JOBS",
-            "—",
-            "Calculated from validated data",
+            total_jobs,
+            "Validated records in the dataset",
         )
 
     with col2:
+
         metric_card(
             "🧑‍💻",
             "UNIQUE JOB TITLES",
-            "—",
+            unique_titles,
             "Technology roles identified",
         )
 
     with col3:
+
         metric_card(
             "⚡",
             "SKILLS IDENTIFIED",
-            "—",
-            "Extracted from job information",
+            skills_count,
+            "Technical skills detected",
         )
 
     with col4:
+
         metric_card(
             "📍",
             "UAE LOCATIONS",
-            "—",
-            "Locations represented in data",
+            locations_count,
+            "Locations represented",
         )
 
     section_header(
         "◈ INTELLIGENCE CENTER",
         "Explore the Market",
-        "Each section focuses on a different part of the UAE technology job market.",
+        "Different perspectives on jobs, skills, "
+        "locations and career opportunities.",
     )
 
     a, b, c = st.columns(3)
 
     with a:
-        st.markdown(
-            """
-            <div class="info-card">
-                <h3>📈 Job Analysis</h3>
-                <p>
-                    Explore technology roles, job categories, and patterns
-                    found across the UAE job market dataset.
-                </p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+
+        html("""
+        <div class="info-card">
+
+            <h3>📈 Job Analysis</h3>
+
+            <p>
+                Explore technology roles, job categories
+                and patterns found across the UAE
+                job-market dataset.
+            </p>
+
+        </div>
+        """)
 
     with b:
-        st.markdown(
-            """
-            <div class="info-card">
-                <h3>⚡ Skills Intelligence</h3>
-                <p>
-                    Identify technical skills and technologies appearing
-                    across technology-related job opportunities.
-                </p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+
+        html("""
+        <div class="info-card">
+
+            <h3>⚡ Skills Intelligence</h3>
+
+            <p>
+                Discover programming languages,
+                platforms and technologies appearing
+                across technology-related roles.
+            </p>
+
+        </div>
+        """)
 
     with c:
-        st.markdown(
-            """
-            <div class="info-card">
-                <h3>📍 Location Insights</h3>
-                <p>
-                    Understand how technology opportunities are distributed
-                    across cities and locations in the UAE.
-                </p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
 
-    empty_chart_message()
+        html("""
+        <div class="info-card">
+
+            <h3>📍 Location Insights</h3>
+
+            <p>
+                Understand how opportunities represented
+                in the dataset are distributed across
+                UAE locations.
+            </p>
+
+        </div>
+        """)
+
+    if df.empty:
+        data_pending()
+
 
 # ============================================================
 # JOB ANALYSIS
@@ -619,22 +1097,32 @@ elif page == "Job Analysis":
     section_header(
         "✦ JOB ANALYSIS",
         "Technology Roles & Market Patterns",
-        "Explore the structure and distribution of technology jobs in the dataset.",
+        "Explore job titles and technology-related "
+        "roles identified in the dataset.",
     )
 
     if df.empty:
-        empty_chart_message()
+
+        data_pending()
 
     else:
-        st.success("Dataset loaded successfully.")
 
-        st.write("Rows available:", len(df))
-
-        st.dataframe(
-            df.head(25),
-            use_container_width=True,
-            hide_index=True,
+        st.success(
+            f"Dataset active — {len(df):,} "
+            "validated records loaded."
         )
+
+        if "job_title" in df.columns:
+
+            top_titles = (
+                df["job_title"]
+                .dropna()
+                .value_counts()
+                .head(15)
+            )
+
+            st.bar_chart(top_titles)
+
 
 # ============================================================
 # SKILLS ANALYSIS
@@ -643,12 +1131,44 @@ elif page == "Job Analysis":
 elif page == "Skills Analysis":
 
     section_header(
-        "◈ SKILLS ANALYSIS",
+        "◈ SKILLS INTELLIGENCE",
         "In-Demand Technology Skills",
-        "Discover which technical skills appear most frequently in job opportunities.",
+        "Explore technologies and technical skills "
+        "identified from the available job information.",
     )
 
-    empty_chart_message()
+    if df.empty:
+
+        data_pending()
+
+    else:
+
+        if "skills" in df.columns:
+
+            skills = (
+                df["skills"]
+                .dropna()
+                .str.split(",")
+                .explode()
+                .str.strip()
+            )
+
+            skills = skills[
+                skills != ""
+            ]
+
+            top_skills = (
+                skills
+                .value_counts()
+                .head(15)
+            )
+
+            st.bar_chart(top_skills)
+
+        else:
+
+            data_pending()
+
 
 # ============================================================
 # LOCATION ANALYSIS
@@ -657,12 +1177,34 @@ elif page == "Skills Analysis":
 elif page == "Location Analysis":
 
     section_header(
-        "⌖ LOCATION ANALYSIS",
+        "⌖ LOCATION INTELLIGENCE",
         "Where Are the Opportunities?",
-        "Explore the geographic distribution of technology jobs across the UAE.",
+        "Explore locations represented across "
+        "the UAE technology-job dataset.",
     )
 
-    empty_chart_message()
+    if df.empty:
+
+        data_pending()
+
+    else:
+
+        if "location" in df.columns:
+
+            locations = (
+                df["location"]
+                .replace("", pd.NA)
+                .dropna()
+                .value_counts()
+                .head(15)
+            )
+
+            st.bar_chart(locations)
+
+        else:
+
+            data_pending()
+
 
 # ============================================================
 # SALARY ANALYSIS
@@ -671,12 +1213,37 @@ elif page == "Location Analysis":
 elif page == "Salary Analysis":
 
     section_header(
-        "◇ SALARY ANALYSIS",
+        "◇ SALARY INTELLIGENCE",
         "Compensation Insights",
-        "Salary insights will only be displayed when reliable salary data is available.",
+        "Salary analysis is shown only when the "
+        "source data provides sufficiently usable "
+        "compensation information.",
     )
 
-    empty_chart_message()
+    if df.empty:
+
+        data_pending()
+
+    elif "salary" not in df.columns:
+
+        data_pending()
+
+    else:
+
+        html("""
+        <div class="status-card">
+
+            💰 <strong>Salary data detected.</strong>
+
+            <br><br>
+
+            Compensation values will be normalized
+            and validated before salary comparisons
+            are displayed.
+
+        </div>
+        """)
+
 
 # ============================================================
 # DATA EXPLORER
@@ -687,21 +1254,56 @@ elif page == "Data Explorer":
     section_header(
         "⌕ DATA EXPLORER",
         "Explore the Dataset",
-        "Inspect the data used to generate the dashboard insights.",
+        "Inspect the processed records used by HJMI.",
     )
 
     if df.empty:
-        empty_chart_message()
+
+        data_pending()
 
     else:
-        st.write(f"**Available records:** {len(df):,}")
-        st.write(f"**Available columns:** {len(df.columns)}")
+
+        search = st.text_input(
+            "🔎 Search dataset",
+            placeholder=(
+                "Search job title, company, "
+                "location or skill..."
+            ),
+        )
+
+        filtered_df = df.copy()
+
+        if search:
+
+            search_lower = search.lower()
+
+            mask = filtered_df.astype(
+                str
+            ).apply(
+                lambda row:
+                row.str.lower()
+                .str.contains(
+                    search_lower,
+                    regex=False,
+                )
+                .any(),
+                axis=1,
+            )
+
+            filtered_df = filtered_df[
+                mask
+            ]
+
+        st.caption(
+            f"{len(filtered_df):,} records displayed"
+        )
 
         st.dataframe(
-            df,
+            filtered_df,
             use_container_width=True,
             hide_index=True,
         )
+
 
 # ============================================================
 # ABOUT
@@ -710,80 +1312,102 @@ elif page == "Data Explorer":
 elif page == "About":
 
     section_header(
-        "✦ ABOUT THE PROJECT",
+        "✦ ABOUT HJMI",
         "Hasan Job Market Intelligence",
-        "A portfolio data-analysis project focused on technology opportunities in the UAE.",
+        "A Computer Science and data-analysis project "
+        "focused on technology opportunities in the UAE.",
     )
 
     left, right = st.columns([1.3, 1])
 
     with left:
-        st.markdown(
-            """
-            <div class="info-card">
-                <h3>🎯 Project Purpose</h3>
-                <p>
-                    HJMI was created to explore job-market data and transform
-                    raw information into clear insights about technology roles,
-                    skills, locations, and career opportunities in the UAE.
-                </p>
-                <p>
-                    The project combines data collection, cleaning, analysis,
-                    visualization, and dashboard development in one practical
-                    data-analysis workflow.
-                </p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
+
+        html("""
+        <div class="info-card">
+
+            <h3>🎯 Project Purpose</h3>
+
+            <p>
+                HJMI explores job-market data and
+                transforms raw information into clearer
+                insights about technology roles, skills,
+                locations and career opportunities
+                represented in the UAE dataset.
+            </p>
+
+            <p>
+                The project combines data acquisition,
+                cleaning, analysis, visualization and
+                dashboard development into one
+                practical workflow.
+            </p>
+
+        </div>
+        """)
 
     with right:
-        st.markdown(
-            """
-            <div class="info-card">
-                <h3>🧰 Technology</h3>
-                <p>
-                    🐍 Python<br>
-                    📊 Pandas<br>
-                    📈 Plotly<br>
-                    🖥️ Streamlit<br>
-                    🗃️ Open Data<br>
-                    💻 GitHub
-                </p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
 
-    st.markdown(
-        """
+        html("""
         <div class="info-card">
-            <h3>👨‍💻 Developer</h3>
+
+            <h3>🧰 Technology Stack</h3>
+
             <p>
-                <strong style="color:#ffffff;">Hasan R. H. Abdalhadi</strong><br>
-                Computer Science Engineering<br>
-                BITS Pilani – Dubai Campus
+                🐍 Python<br>
+                📊 Pandas<br>
+                📈 Data Visualization<br>
+                🖥️ Streamlit<br>
+                🗃️ Open Data<br>
+                💻 GitHub
             </p>
+
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+        """)
+
+    html("""
+    <div class="developer-card">
+
+        <div class="developer-name">
+            Hasan R. H. Abdalhadi
+        </div>
+
+        <div class="developer-role">
+            COMPUTER SCIENCE ENGINEERING
+        </div>
+
+        <div class="developer-text">
+            BITS Pilani – Dubai Campus<br>
+            Information Systems • Software • Data •
+            Digital Technologies
+        </div>
+
+    </div>
+    """)
+
 
 # ============================================================
 # FOOTER
 # ============================================================
 
-st.markdown(
-    """
-    <div class="footer">
+html("""
+<div class="footer">
 
-        <strong>HJMI — Hasan Job Market Intelligence</strong><br>
-
-        UAE Job Market Data Analysis • Python • Pandas • Plotly • Streamlit<br>
-
-        Designed & Developed by Hasan R. H. Abdalhadi
-
+    <div class="footer-brand">
+        HJMI — HASAN JOB MARKET INTELLIGENCE
     </div>
-    """,
-    unsafe_allow_html=True,
-)
+
+    UAE Job Market Data Analysis
+
+    <br>
+
+    Python • Pandas • Data Visualization • Streamlit • GitHub
+
+    <br><br>
+
+    Designed & Developed by
+    <strong style="color:#d6dde5;">
+        Hasan R. H. Abdalhadi
+    </strong>
+
+</div>
+""")
