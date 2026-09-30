@@ -1,37 +1,32 @@
 """
 HJMI — Hasan Job Market Intelligence
-UAE Job Market Data Preparation Pipeline
+UAE Technology Job Market Data Preparation Pipeline
 
-This script:
-1. Downloads/loads the ArabJobs dataset
-2. Normalizes column names
-3. Filters United Arab Emirates records
-4. Identifies technology-related jobs
-5. Cleans text fields
-6. Extracts selected technology skills
-7. Creates a dashboard-ready CSV file
+This pipeline:
+1. Fetches current UAE job listings
+2. Cleans and normalizes the data
+3. Filters technology-related roles
+4. Extracts technical skills
+5. Removes duplicates
+6. Creates the dashboard-ready dataset
 
 Developer:
 Hasan R. H. Abdalhadi
 """
 
 from pathlib import Path
+import html
 import re
 import pandas as pd
+
+from data_source import load_dataset
 
 
 # ============================================================
 # CONFIGURATION
 # ============================================================
 
-DATA_URL = (
-    "https://huggingface.co/datasets/drelhaj/"
-    "ArabJobs/resolve/main/ArabJobs.csv"
-)
-
 DATA_DIR = Path("data")
-
-RAW_FILE = DATA_DIR / "arab_jobs_raw.csv"
 CLEAN_FILE = DATA_DIR / "uae_tech_jobs_clean.csv"
 
 
@@ -43,66 +38,94 @@ TECH_KEYWORDS = [
     "software",
     "developer",
     "programmer",
-    "engineer",
-    "data",
-    "analyst",
-    "analytics",
+    "computer",
     "information technology",
     "information systems",
-    "computer",
+    "data",
+    "analytics",
+    "data scientist",
+    "data engineer",
+    "data analyst",
+    "machine learning",
+    "artificial intelligence",
+    " ai ",
+    "cybersecurity",
+    "cyber security",
     "network",
-    "cyber",
-    "security",
+    "networking",
     "cloud",
     "database",
-    "web",
+    "web developer",
     "frontend",
     "front-end",
     "backend",
     "back-end",
     "full stack",
     "full-stack",
-    "mobile",
+    "mobile developer",
     "android",
-    "ios",
-    "machine learning",
-    "artificial intelligence",
-    "ai ",
-    "it ",
+    "ios developer",
+    "devops",
+    "site reliability",
+    "sre",
     "technical support",
+    "it support",
     "system administrator",
     "systems administrator",
-    "devops",
-    "qa ",
+    "systems engineer",
+    "software engineer",
+    "cloud engineer",
+    "security engineer",
+    "network engineer",
+    "qa engineer",
     "quality assurance",
-    "ui",
-    "ux",
+    "ui developer",
+    "ux designer",
+    "solutions architect",
+    "cloud architect",
+    "database administrator",
+    "business intelligence",
+    "bi developer",
 ]
 
 
 # ============================================================
-# SKILLS TO IDENTIFY
+# SKILLS
 # ============================================================
 
 SKILL_PATTERNS = {
     "Python": r"\bpython\b",
     "Java": r"\bjava\b",
     "JavaScript": r"\bjavascript\b|\bjs\b",
+    "TypeScript": r"\btypescript\b",
+    "C": r"(?<!\+)\bc\b(?!\+)",
     "C++": r"\bc\+\+\b",
     "C#": r"\bc#\b|c sharp",
     "PHP": r"\bphp\b",
+    "Ruby": r"\bruby\b",
+    "Go": r"\bgolang\b|\bgo language\b",
+    "Kotlin": r"\bkotlin\b",
+    "Swift": r"\bswift\b",
     "SQL": r"\bsql\b",
     "MySQL": r"\bmysql\b",
+    "PostgreSQL": r"\bpostgresql\b|\bpostgres\b",
+    "MongoDB": r"\bmongodb\b",
+    "Oracle": r"\boracle\b",
     "HTML": r"\bhtml\b",
     "CSS": r"\bcss\b",
     "React": r"\breact(?:\.js|js)?\b",
     "Angular": r"\bangular\b",
+    "Vue.js": r"\bvue(?:\.js|js)?\b",
     "Node.js": r"\bnode(?:\.js|js)\b",
+    "Django": r"\bdjango\b",
+    "Flask": r"\bflask\b",
+    "Spring": r"\bspring boot\b|\bspring framework\b",
     "AWS": r"\baws\b|amazon web services",
     "Azure": r"\bazure\b",
+    "Google Cloud": r"\bgcp\b|google cloud",
     "Docker": r"\bdocker\b",
     "Kubernetes": r"\bkubernetes\b|\bk8s\b",
-    "Git": r"\bgit\b|\bgithub\b",
+    "Git": r"\bgit\b|\bgithub\b|\bgitlab\b",
     "Linux": r"\blinux\b",
     "Power BI": r"\bpower\s*bi\b",
     "Tableau": r"\btableau\b",
@@ -111,110 +134,111 @@ SKILL_PATTERNS = {
     "Artificial Intelligence": (
         r"\bartificial intelligence\b|\bai\b"
     ),
-    "Data Analysis": r"\bdata analysis\b|\bdata analytics\b",
+    "Data Analysis": (
+        r"\bdata analysis\b|\bdata analytics\b"
+    ),
+    "Data Science": r"\bdata science\b",
     "Cybersecurity": (
         r"\bcybersecurity\b|\bcyber security\b"
     ),
+    "DevOps": r"\bdevops\b",
+    "REST API": r"\brest api\b|\brestful\b",
+    "GraphQL": r"\bgraphql\b",
+    "TensorFlow": r"\btensorflow\b",
+    "PyTorch": r"\bpytorch\b",
+    "Spark": r"\bapache spark\b|\bspark\b",
+    "Hadoop": r"\bhadoop\b",
 }
+
+
+# ============================================================
+# UAE LOCATIONS
+# ============================================================
+
+UAE_KEYWORDS = [
+    "united arab emirates",
+    "uae",
+    "dubai",
+    "abu dhabi",
+    "sharjah",
+    "ajman",
+    "fujairah",
+    "ras al khaimah",
+    "ras al-khaimah",
+    "umm al quwain",
+    "umm al-quwain",
+    "al ain",
+]
 
 
 # ============================================================
 # HELPER FUNCTIONS
 # ============================================================
 
-def clean_column_name(column):
-    """Convert a column name to a simple snake_case format."""
-
-    column = str(column).strip().lower()
-    column = re.sub(r"[^a-z0-9]+", "_", column)
-
-    return column.strip("_")
-
-
 def clean_text(value):
-    """Clean unnecessary spaces and line breaks."""
+    """Clean HTML, line breaks and unnecessary spaces."""
 
     if pd.isna(value):
         return ""
 
     value = str(value)
-    value = re.sub(r"\s+", " ", value)
+
+    value = html.unescape(value)
+
+    value = re.sub(
+        r"<[^>]+>",
+        " ",
+        value,
+    )
+
+    value = re.sub(
+        r"\s+",
+        " ",
+        value,
+    )
 
     return value.strip()
 
 
-def find_column(columns, candidates):
-    """Find the first matching column from possible names."""
+def is_uae_job(location):
+    """Check whether a location represents the UAE."""
 
-    normalized = list(columns)
+    text = clean_text(location).lower()
 
-    for candidate in candidates:
-        if candidate in normalized:
-            return candidate
-
-    for column in normalized:
-        for candidate in candidates:
-            if candidate in column:
-                return column
-
-    return None
+    return any(
+        keyword in text
+        for keyword in UAE_KEYWORDS
+    )
 
 
 def contains_tech_keyword(text):
-    """Return True if the text appears technology-related."""
+    """Check whether job information is technology related."""
 
-    text = str(text).lower()
+    text = clean_text(text).lower()
 
-    return any(keyword in text for keyword in TECH_KEYWORDS)
+    return any(
+        keyword in text
+        for keyword in TECH_KEYWORDS
+    )
 
 
 def extract_skills(text):
-    """Extract known technology skills from job text."""
+    """Extract known technology skills from job information."""
 
-    text = str(text).lower()
+    text = clean_text(text)
 
     detected = []
 
     for skill, pattern in SKILL_PATTERNS.items():
 
-        if re.search(pattern, text, flags=re.IGNORECASE):
+        if re.search(
+            pattern,
+            text,
+            flags=re.IGNORECASE,
+        ):
             detected.append(skill)
 
     return detected
-
-
-# ============================================================
-# LOAD DATA
-# ============================================================
-
-def load_data():
-
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-
-    if RAW_FILE.exists():
-
-        print("Loading existing raw dataset...")
-
-        return pd.read_csv(
-            RAW_FILE,
-            low_memory=False,
-        )
-
-    print("Downloading ArabJobs dataset...")
-
-    df = pd.read_csv(
-        DATA_URL,
-        low_memory=False,
-    )
-
-    df.to_csv(
-        RAW_FILE,
-        index=False,
-    )
-
-    print("Raw dataset saved.")
-
-    return df
 
 
 # ============================================================
@@ -223,174 +247,120 @@ def load_data():
 
 def prepare_data():
 
-    print("\n======================================")
+    print()
+    print("======================================")
     print(" HJMI DATA PREPARATION")
-    print("======================================\n")
+    print("======================================")
+    print()
 
-    df = load_data()
-
-    print(f"Original records: {len(df):,}")
+    DATA_DIR.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
     # --------------------------------------------------------
-    # Normalize column names
+    # Fetch live/current source data
     # --------------------------------------------------------
 
-    df.columns = [
-        clean_column_name(column)
-        for column in df.columns
+    df = load_dataset()
+
+    if df.empty:
+        raise RuntimeError(
+            "The job data source returned no records."
+        )
+
+    print(
+        f"Source records available: {len(df):,}"
+    )
+
+    # --------------------------------------------------------
+    # Make sure required columns exist
+    # --------------------------------------------------------
+
+    required_columns = [
+        "job_title",
+        "company",
+        "location",
+        "category",
+        "description",
     ]
 
-    print("\nAvailable columns:")
+    for column in required_columns:
 
-    for column in df.columns:
-        print(f" - {column}")
+        if column not in df.columns:
+            df[column] = ""
 
-    # --------------------------------------------------------
-    # Identify important columns
-    # --------------------------------------------------------
+    optional_columns = [
+        "source_id",
+        "publication_date",
+        "job_url",
+        "source",
+        "fetched_at",
+    ]
 
-    country_col = find_column(
-        df.columns,
-        [
-            "country",
-            "country_name",
-        ],
-    )
+    for column in optional_columns:
 
-    title_col = find_column(
-        df.columns,
-        [
-            "job_title",
-            "title",
-            "position",
-        ],
-    )
-
-    location_col = find_column(
-        df.columns,
-        [
-            "location",
-            "city",
-            "job_location",
-        ],
-    )
-
-    description_col = find_column(
-        df.columns,
-        [
-            "job_description",
-            "description",
-            "details",
-        ],
-    )
-
-    company_col = find_column(
-        df.columns,
-        [
-            "company",
-            "company_name",
-            "employer",
-        ],
-    )
-
-    salary_col = find_column(
-        df.columns,
-        [
-            "salary",
-            "salary_range",
-        ],
-    )
-
-    category_col = find_column(
-        df.columns,
-        [
-            "category",
-            "job_category",
-            "classification",
-        ],
-    )
+        if column not in df.columns:
+            df[column] = ""
 
     # --------------------------------------------------------
-    # Validate required columns
-    # --------------------------------------------------------
-
-    if country_col is None:
-        raise ValueError(
-            "Country column could not be identified."
-        )
-
-    if title_col is None:
-        raise ValueError(
-            "Job title column could not be identified."
-        )
-
-    # --------------------------------------------------------
-    # Clean text columns
+    # Clean text
     # --------------------------------------------------------
 
     text_columns = [
-        title_col,
-        location_col,
-        description_col,
-        company_col,
-        salary_col,
-        category_col,
+        "job_title",
+        "company",
+        "location",
+        "category",
+        "description",
     ]
 
     for column in text_columns:
 
-        if column and column in df.columns:
-            df[column] = df[column].apply(clean_text)
+        df[column] = (
+            df[column]
+            .fillna("")
+            .apply(clean_text)
+        )
 
     # --------------------------------------------------------
-    # Filter UAE
+    # UAE validation
     # --------------------------------------------------------
 
-    country_values = (
-        df[country_col]
-        .fillna("")
-        .astype(str)
-        .str.strip()
-        .str.lower()
-    )
-
-    uae_mask = country_values.str.contains(
-        r"united arab emirates|\buae\b|الإمارات",
-        regex=True,
-        na=False,
+    uae_mask = df["location"].apply(
+        is_uae_job
     )
 
     uae_df = df[uae_mask].copy()
 
     print(
-        f"\nUAE records identified: "
-        f"{len(uae_df):,}"
+        f"UAE records identified: {len(uae_df):,}"
     )
 
-    # --------------------------------------------------------
-    # Build searchable text
-    # --------------------------------------------------------
+    if uae_df.empty:
+        raise RuntimeError(
+            "No UAE job records were identified."
+        )
 
-    searchable_columns = [
-        column
-        for column in [
-            title_col,
-            description_col,
-            category_col,
-        ]
-        if column and column in uae_df.columns
-    ]
+    # --------------------------------------------------------
+    # Searchable job information
+    # --------------------------------------------------------
 
     uae_df["_search_text"] = (
-        uae_df[searchable_columns]
+        uae_df[
+            [
+                "job_title",
+                "category",
+                "description",
+            ]
+        ]
         .fillna("")
         .astype(str)
         .agg(" ".join, axis=1)
-        .str.lower()
     )
 
     # --------------------------------------------------------
-    # Identify technology jobs
+    # Technology filtering
     # --------------------------------------------------------
 
     tech_mask = uae_df["_search_text"].apply(
@@ -400,12 +370,17 @@ def prepare_data():
     tech_df = uae_df[tech_mask].copy()
 
     print(
-        f"Technology-related UAE records: "
+        "Technology-related UAE records: "
         f"{len(tech_df):,}"
     )
 
+    if tech_df.empty:
+        raise RuntimeError(
+            "No UAE technology jobs were identified."
+        )
+
     # --------------------------------------------------------
-    # Extract technology skills
+    # Skill extraction
     # --------------------------------------------------------
 
     tech_df["detected_skills"] = (
@@ -413,68 +388,44 @@ def prepare_data():
         .apply(extract_skills)
     )
 
-    tech_df["skills"] = tech_df[
-        "detected_skills"
-    ].apply(
-        lambda skills: ", ".join(skills)
+    tech_df["skills"] = (
+        tech_df["detected_skills"]
+        .apply(
+            lambda skills:
+            ", ".join(skills)
+        )
     )
 
-    tech_df["skill_count"] = tech_df[
-        "detected_skills"
-    ].apply(len)
+    tech_df["skill_count"] = (
+        tech_df["detected_skills"]
+        .apply(len)
+    )
 
     # --------------------------------------------------------
-    # Create clean standardized output
+    # Build clean dashboard dataset
     # --------------------------------------------------------
 
-    output = pd.DataFrame()
-
-    output["job_title"] = tech_df[
-        title_col
+    output_columns = [
+        "source_id",
+        "job_title",
+        "company",
+        "location",
+        "category",
+        "description",
+        "skills",
+        "skill_count",
+        "publication_date",
+        "job_url",
+        "source",
+        "fetched_at",
     ]
 
-    if company_col:
-        output["company"] = tech_df[
-            company_col
-        ]
-    else:
-        output["company"] = ""
-
-    if location_col:
-        output["location"] = tech_df[
-            location_col
-        ]
-    else:
-        output["location"] = ""
-
-    if category_col:
-        output["category"] = tech_df[
-            category_col
-        ]
-    else:
-        output["category"] = ""
-
-    if salary_col:
-        output["salary"] = tech_df[
-            salary_col
-        ]
-    else:
-        output["salary"] = ""
-
-    if description_col:
-        output["description"] = tech_df[
-            description_col
-        ]
-    else:
-        output["description"] = ""
-
-    output["skills"] = tech_df["skills"]
-    output["skill_count"] = tech_df[
-        "skill_count"
-    ]
+    output = tech_df[
+        output_columns
+    ].copy()
 
     # --------------------------------------------------------
-    # Remove empty titles and duplicates
+    # Remove empty job titles
     # --------------------------------------------------------
 
     output["job_title"] = (
@@ -488,20 +439,92 @@ def prepare_data():
         output["job_title"] != ""
     ]
 
-    duplicate_columns = [
-        "job_title",
-        "company",
-        "location",
-    ]
+    # --------------------------------------------------------
+    # Remove duplicates
+    # --------------------------------------------------------
 
-    output = output.drop_duplicates(
-        subset=duplicate_columns,
+    has_source_ids = (
+        "source_id" in output.columns
+        and output["source_id"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        .ne("")
+        .any()
     )
 
-    output = output.reset_index(drop=True)
+    if has_source_ids:
+
+        with_id = output[
+            output["source_id"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .ne("")
+        ].drop_duplicates(
+            subset=["source_id"],
+            keep="last",
+        )
+
+        without_id = output[
+            output["source_id"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .eq("")
+        ].drop_duplicates(
+            subset=[
+                "job_title",
+                "company",
+                "location",
+            ],
+            keep="last",
+        )
+
+        output = pd.concat(
+            [with_id, without_id],
+            ignore_index=True,
+        )
+
+    else:
+
+        output = output.drop_duplicates(
+            subset=[
+                "job_title",
+                "company",
+                "location",
+            ],
+            keep="last",
+        )
 
     # --------------------------------------------------------
-    # Save clean dataset
+    # Sort newest jobs first when dates are available
+    # --------------------------------------------------------
+
+    if "publication_date" in output.columns:
+
+        output["_sort_date"] = pd.to_datetime(
+            output["publication_date"],
+            errors="coerce",
+            utc=True,
+        )
+
+        output = output.sort_values(
+            "_sort_date",
+            ascending=False,
+            na_position="last",
+        )
+
+        output = output.drop(
+            columns=["_sort_date"]
+        )
+
+    output = output.reset_index(
+        drop=True
+    )
+
+    # --------------------------------------------------------
+    # Save dashboard dataset
     # --------------------------------------------------------
 
     output.to_csv(
@@ -509,47 +532,66 @@ def prepare_data():
         index=False,
     )
 
-    print("\n======================================")
-    print(" DATA PREPARATION COMPLETE")
-    print("======================================")
+    # --------------------------------------------------------
+    # Statistics
+    # --------------------------------------------------------
 
-    print(
-        f"\nClean UAE technology jobs: "
-        f"{len(output):,}"
+    unique_titles = (
+        output["job_title"]
+        .nunique()
     )
 
-    print(
-        f"Unique job titles: "
-        f"{output['job_title'].nunique():,}"
-    )
-
-    print(
-        f"Locations represented: "
-        f"{output['location'].nunique():,}"
+    unique_locations = (
+        output["location"]
+        .replace("", pd.NA)
+        .dropna()
+        .nunique()
     )
 
     skills_found = set()
 
-    for skills in output["skills"]:
+    for skills in output["skills"].fillna(""):
 
-        if skills:
-            skills_found.update(
-                skill.strip()
-                for skill in skills.split(",")
-                if skill.strip()
-            )
+        for skill in str(skills).split(","):
+
+            skill = skill.strip()
+
+            if skill:
+                skills_found.add(skill)
+
+    print()
+    print("======================================")
+    print(" HJMI DATA PREPARATION COMPLETE")
+    print("======================================")
+    print()
+
+    print(
+        f"UAE technology jobs: {len(output):,}"
+    )
+
+    print(
+        f"Unique job titles: {unique_titles:,}"
+    )
+
+    print(
+        f"Locations represented: "
+        f"{unique_locations:,}"
+    )
 
     print(
         f"Technology skills identified: "
         f"{len(skills_found):,}"
     )
 
+    print()
     print(
-        f"\nClean dataset saved to:\n"
+        f"Dashboard dataset saved to: "
         f"{CLEAN_FILE}"
     )
 
-    print("\nPreview:\n")
+    print()
+    print("Preview:")
+    print()
 
     print(
         output[
