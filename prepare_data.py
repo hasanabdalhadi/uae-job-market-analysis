@@ -7,8 +7,9 @@ This pipeline:
 2. Cleans and normalizes the data
 3. Filters technology-related roles
 4. Extracts technical skills
-5. Removes duplicates
-6. Creates the dashboard-ready dataset
+5. Preserves salary information when available
+6. Removes duplicates
+7. Creates the dashboard-ready dataset
 
 Developer:
 Hasan R. H. Abdalhadi
@@ -17,6 +18,7 @@ Hasan R. H. Abdalhadi
 from pathlib import Path
 import html
 import re
+
 import pandas as pd
 
 from data_source import load_dataset
@@ -292,6 +294,7 @@ def prepare_data():
 
     optional_columns = [
         "source_id",
+        "salary",
         "publication_date",
         "job_url",
         "source",
@@ -313,6 +316,7 @@ def prepare_data():
         "location",
         "category",
         "description",
+        "salary",
     ]
 
     for column in text_columns:
@@ -414,6 +418,7 @@ def prepare_data():
         "description",
         "skills",
         "skill_count",
+        "salary",
         "publication_date",
         "job_url",
         "source",
@@ -438,6 +443,12 @@ def prepare_data():
     output = output[
         output["job_title"] != ""
     ]
+
+    if output.empty:
+        raise RuntimeError(
+            "No usable technology job records remained "
+            "after data preparation."
+        )
 
     # --------------------------------------------------------
     # Remove duplicates
@@ -498,7 +509,7 @@ def prepare_data():
         )
 
     # --------------------------------------------------------
-    # Sort newest jobs first when dates are available
+    # Sort newest jobs first
     # --------------------------------------------------------
 
     if "publication_date" in output.columns:
@@ -559,6 +570,15 @@ def prepare_data():
             if skill:
                 skills_found.add(skill)
 
+    salary_records = (
+        output["salary"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+        .ne("")
+        .sum()
+    )
+
     print()
     print("======================================")
     print(" HJMI DATA PREPARATION COMPLETE")
@@ -583,6 +603,11 @@ def prepare_data():
         f"{len(skills_found):,}"
     )
 
+    print(
+        f"Jobs with salary information: "
+        f"{salary_records:,}"
+    )
+
     print()
     print(
         f"Dashboard dataset saved to: "
@@ -593,15 +618,20 @@ def prepare_data():
     print("Preview:")
     print()
 
+    preview_columns = [
+        "job_title",
+        "company",
+        "location",
+        "skills",
+        "salary",
+    ]
+
     print(
         output[
-            [
-                "job_title",
-                "company",
-                "location",
-                "skills",
-            ]
-        ].head(10)
+            preview_columns
+        ]
+        .head(10)
+        .to_string(index=False)
     )
 
     return output
