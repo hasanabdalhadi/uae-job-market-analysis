@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: hjmi-data-update
+  cancel-in-progress: false
+
 jobs:
   update-job-data:
     runs-on: ubuntu-latest
@@ -19,6 +23,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
 
       - name: Set up Python
@@ -79,6 +84,7 @@ jobs:
                   "job_title",
                   "company",
                   "location",
+                  "skills",
                   "salary",
                   "publication_date",
                   "source",
@@ -86,12 +92,12 @@ jobs:
               if column in df.columns
           ]
 
-          print(df[columns].head(10).to_string(index=False))
+          print(
+              df[columns]
+              .head(10)
+              .to_string(index=False)
+          )
           PY
-
-      - name: Sync latest main branch
-        run: |
-          git pull --rebase origin main
 
       - name: Commit updated job market data
         run: |
@@ -102,7 +108,9 @@ jobs:
 
           if git diff --cached --quiet; then
             echo "No data changes detected."
-          else
-            git commit -m "Automatically update HJMI UAE job market data"
-            git push origin main
+            exit 0
           fi
+
+          git commit -m "Automatically update HJMI UAE job market data"
+
+          git push origin HEAD:main
