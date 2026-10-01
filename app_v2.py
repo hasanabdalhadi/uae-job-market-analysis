@@ -5,6 +5,12 @@
 
 import streamlit as st
 
+from services.auth_service import (
+    is_authenticated,
+    get_current_user,
+    get_user_display_name,
+)
+
 
 # ============================================================
 # PAGE CONFIG
@@ -71,6 +77,12 @@ market_trends_page = st.Page(
     icon="📈",
 )
 
+account_page = st.Page(
+    "pages/account.py",
+    title="My HJMI",
+    icon="👤",
+)
+
 about_page = st.Page(
     "pages/about.py",
     title="About & Methodology",
@@ -92,10 +104,25 @@ navigation = st.navigation(
         location_intelligence_page,
         salary_intelligence_page,
         market_trends_page,
+        account_page,
         about_page,
     ],
     position="hidden",
 )
+
+
+# ============================================================
+# AUTH STATE
+# ============================================================
+
+authenticated = is_authenticated()
+
+if authenticated:
+    current_user = get_current_user()
+    display_name = get_user_display_name()
+else:
+    current_user = None
+    display_name = None
 
 
 # ============================================================
@@ -279,6 +306,17 @@ st.html(
         line-height: 1.6;
     }
 
+    .hjmi-account-email {
+        color: #698391;
+
+        font-size: 8px;
+        line-height: 1.5;
+
+        margin-top: 5px;
+
+        word-break: break-word;
+    }
+
     .hjmi-version {
         margin:
             18px 5px 8px 5px;
@@ -427,39 +465,82 @@ with st.sidebar:
         """
     )
 
-    st.html(
-        """
-        <div class="hjmi-account-card">
+    if authenticated:
 
-            <div class="hjmi-account-small">
-                PERSONAL CAREER SPACE
+        user_email = getattr(
+            current_user,
+            "email",
+            "",
+        ) or ""
+
+        st.html(
+            f"""
+            <div class="hjmi-account-card">
+
+                <div class="hjmi-account-small">
+                    ACCOUNT ACTIVE
+                </div>
+
+                <div class="hjmi-account-title">
+                    {display_name}
+                </div>
+
+                <div class="hjmi-account-description">
+                    Your personal HJMI career workspace.
+                </div>
+
+                <div class="hjmi-account-email">
+                    {user_email}
+                </div>
+
             </div>
+            """
+        )
 
-            <div class="hjmi-account-title">
-                Your HJMI Account
+        st.page_link(
+            account_page,
+            label="My HJMI",
+            icon="👤",
+            use_container_width=True,
+        )
+
+    else:
+
+        st.html(
+            """
+            <div class="hjmi-account-card">
+
+                <div class="hjmi-account-small">
+                    PERSONAL CAREER SPACE
+                </div>
+
+                <div class="hjmi-account-title">
+                    Your HJMI Account
+                </div>
+
+                <div class="hjmi-account-description">
+                    Save opportunities, track applications,
+                    manage your career profile and receive
+                    personalized job alerts.
+                </div>
+
             </div>
+            """
+        )
 
-            <div class="hjmi-account-description">
-                Save opportunities, track applications,
-                manage your career profile and receive
-                personalized job alerts.
-            </div>
+        st.page_link(
+            account_page,
+            label="Sign In",
+            icon="🔐",
+            use_container_width=True,
+        )
 
-        </div>
-        """
-    )
-
-    st.button(
-        "Sign In",
-        use_container_width=True,
-        key="hjmi_signin_preview",
-    )
-
-    st.button(
-        "Create Account",
-        use_container_width=True,
-        key="hjmi_signup_preview",
-    )
+        st.page_link(
+            account_page,
+            label="Create Account",
+            icon="➕",
+            use_container_width=True,
+        )
 
 
     # --------------------------------------------------------
