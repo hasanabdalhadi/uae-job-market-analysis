@@ -7,9 +7,7 @@ import re
 
 import pandas as pd
 
-from services.data_service import (
-    parse_skills,
-)
+from services.data_service import parse_skills
 
 
 # ============================================================
@@ -43,9 +41,7 @@ def clean_text(value):
 
 def normalize_text(value):
 
-    value = clean_text(
-        value
-    ).lower()
+    value = clean_text(value).lower()
 
     value = value.replace(
         "&",
@@ -69,9 +65,7 @@ def normalize_text(value):
 
 def normalize_skill(value):
 
-    value = normalize_text(
-        value
-    )
+    value = normalize_text(value)
 
     aliases = {
         "js": "javascript",
@@ -105,16 +99,12 @@ def unique_values(values):
 
     for value in values or []:
 
-        value = clean_text(
-            value
-        )
+        value = clean_text(value)
 
         if not value:
             continue
 
-        key = normalize_text(
-            value
-        )
+        key = normalize_text(value)
 
         if not key:
             continue
@@ -172,22 +162,10 @@ def get_profile_locations(profile):
 def get_job_text(job):
 
     fields = [
-        job.get(
-            "job_title",
-            "",
-        ),
-        job.get(
-            "category",
-            "",
-        ),
-        job.get(
-            "description",
-            "",
-        ),
-        job.get(
-            "skills",
-            "",
-        ),
+        job.get("job_title", ""),
+        job.get("category", ""),
+        job.get("description", ""),
+        job.get("skills", ""),
     ]
 
     return normalize_text(
@@ -206,13 +184,11 @@ def get_job_skills(job):
     )
 
     try:
-
         parsed = parse_skills(
             raw_skills
         )
 
     except Exception:
-
         parsed = []
 
     return unique_values(
@@ -259,9 +235,7 @@ def match_skills(
 
             pattern = (
                 r"(?<![a-z0-9])"
-                + re.escape(
-                    normalized
-                )
+                + re.escape(normalized)
                 + r"(?![a-z0-9])"
             )
 
@@ -272,28 +246,15 @@ def match_skills(
                 )
             )
 
-        if (
-            direct_match
-            or text_match
-        ):
-
-            matched.append(
-                skill
-            )
+        if direct_match or text_match:
+            matched.append(skill)
 
         else:
-
-            missing.append(
-                skill
-            )
+            missing.append(skill)
 
     return (
-        unique_values(
-            matched
-        ),
-        unique_values(
-            missing
-        ),
+        unique_values(matched),
+        unique_values(missing),
     )
 
 
@@ -314,20 +275,16 @@ def match_target_roles(
 
     for role in profile_roles:
 
-        normalized_role = (
-            normalize_text(
-                role
-            )
+        normalized_role = normalize_text(
+            role
         )
 
         if not normalized_role:
             continue
 
         if (
-            normalized_role
-            in title
-            or title
-            in normalized_role
+            normalized_role in title
+            or title in normalized_role
         ):
 
             matched_roles.append(
@@ -338,15 +295,13 @@ def match_target_roles(
 
         role_words = {
             word
-            for word in
-            normalized_role.split()
+            for word in normalized_role.split()
             if len(word) >= 3
         }
 
         title_words = {
             word
-            for word in
-            title.split()
+            for word in title.split()
             if len(word) >= 3
         }
 
@@ -357,14 +312,10 @@ def match_target_roles(
 
         if (
             role_words
-            and len(
-                shared_words
-            )
+            and len(shared_words)
             >= min(
                 2,
-                len(
-                    role_words
-                ),
+                len(role_words),
             )
         ):
 
@@ -386,10 +337,8 @@ def match_specialization(
     job_text,
 ):
 
-    specialization = (
-        normalize_text(
-            specialization
-        )
+    specialization = normalize_text(
+        specialization
     )
 
     if not specialization:
@@ -400,8 +349,7 @@ def match_specialization(
 
     specialization_terms = {
         word
-        for word in
-        specialization.split()
+        for word in specialization.split()
         if len(word) >= 4
     }
 
@@ -410,8 +358,7 @@ def match_specialization(
 
     matches = sum(
         1
-        for term in
-        specialization_terms
+        for term in specialization_terms
         if re.search(
             r"(?<![a-z0-9])"
             + re.escape(term)
@@ -424,9 +371,7 @@ def match_specialization(
         matches
         >= min(
             2,
-            len(
-                specialization_terms
-            ),
+            len(specialization_terms),
         )
     )
 
@@ -440,37 +385,24 @@ def match_locations(
     job_location,
 ):
 
-    job_location_normalized = (
-        normalize_text(
-            job_location
-        )
+    job_location_normalized = normalize_text(
+        job_location
     )
 
     matched = []
 
-    for location in (
-        preferred_locations
-    ):
+    for location in preferred_locations:
 
-        normalized_location = (
-            normalize_text(
-                location
-            )
+        normalized_location = normalize_text(
+            location
         )
 
         if not normalized_location:
             continue
 
-        if (
-            normalized_location
-            == "remote"
-        ):
+        if normalized_location == "remote":
 
-            if (
-                "remote"
-                in job_location_normalized
-            ):
-
+            if "remote" in job_location_normalized:
                 matched.append(
                     location
                 )
@@ -529,7 +461,9 @@ def match_experience(
         return {
             "match": False,
             "known": False,
-            "label": "Profile experience not specified",
+            "label": (
+                "Profile experience not specified"
+            ),
         }
 
     if (
@@ -541,30 +475,27 @@ def match_experience(
         return {
             "match": False,
             "known": False,
-            "label": "Job experience not specified",
+            "label": (
+                "Job experience not specified"
+            ),
         }
 
-    if (
-        profile_experience
-        == job_experience
-    ):
+    if profile_experience == job_experience:
 
         return {
             "match": True,
             "known": True,
-            "label": "Experience level aligned",
+            "label": (
+                "Experience level aligned"
+            ),
         }
 
-    profile_rank = (
-        EXPERIENCE_ORDER.get(
-            profile_experience
-        )
+    profile_rank = EXPERIENCE_ORDER.get(
+        profile_experience
     )
 
-    job_rank = (
-        EXPERIENCE_ORDER.get(
-            job_experience
-        )
+    job_rank = EXPERIENCE_ORDER.get(
+        job_experience
     )
 
     if (
@@ -575,24 +506,28 @@ def match_experience(
         return {
             "match": False,
             "known": False,
-            "label": "Experience comparison unavailable",
+            "label": (
+                "Experience comparison unavailable"
+            ),
         }
 
-    if (
-        profile_rank
-        >= job_rank
-    ):
+    if profile_rank >= job_rank:
 
         return {
             "match": True,
             "known": True,
-            "label": "Profile meets or exceeds experience signal",
+            "label": (
+                "Profile meets or exceeds "
+                "experience signal"
+            ),
         }
 
     return {
         "match": False,
         "known": True,
-        "label": "Job may request more experience",
+        "label": (
+            "Job may request more experience"
+        ),
     }
 
 
@@ -697,21 +632,17 @@ def build_match_reasons(
             f"{len(matched_skills)} shared skill"
             + (
                 "s"
-                if len(
-                    matched_skills
-                ) != 1
+                if len(matched_skills) != 1
                 else ""
             )
         )
 
     if matched_roles:
-
         reasons.append(
             "target role alignment"
         )
 
     if specialization_match:
-
         reasons.append(
             "specialization alignment"
         )
@@ -719,13 +650,11 @@ def build_match_reasons(
     if experience_result.get(
         "match"
     ):
-
         reasons.append(
             "experience alignment"
         )
 
     if matched_locations:
-
         reasons.append(
             "preferred location"
         )
@@ -746,20 +675,14 @@ def match_job(
         job,
         pd.Series,
     ):
-
         job = job.to_dict()
 
-
-    profile_skills = (
-        get_profile_skills(
-            profile
-        )
+    profile_skills = get_profile_skills(
+        profile
     )
 
-    profile_roles = (
-        get_profile_roles(
-            profile
-        )
+    profile_roles = get_profile_roles(
+        profile
     )
 
     preferred_locations = (
@@ -767,7 +690,6 @@ def match_job(
             profile
         )
     )
-
 
     specialization = (
         profile.get(
@@ -777,7 +699,6 @@ def match_job(
         or ""
     )
 
-
     profile_experience = (
         profile.get(
             "experience_level",
@@ -786,14 +707,12 @@ def match_job(
         or ""
     )
 
-
     job_title = clean_text(
         job.get(
             "job_title",
             "",
         )
     )
-
 
     job_location = clean_text(
         job.get(
@@ -802,16 +721,13 @@ def match_job(
         )
     )
 
-
     job_text = get_job_text(
         job
     )
 
-
     job_skills = get_job_skills(
         job
     )
-
 
     matched_skills, missing_skills = (
         match_skills(
@@ -821,14 +737,10 @@ def match_job(
         )
     )
 
-
-    matched_roles = (
-        match_target_roles(
-            profile_roles,
-            job_title,
-        )
+    matched_roles = match_target_roles(
+        profile_roles,
+        job_title,
     )
-
 
     specialization_match = (
         match_specialization(
@@ -837,7 +749,6 @@ def match_job(
         )
     )
 
-
     matched_locations = (
         match_locations(
             preferred_locations,
@@ -845,14 +756,15 @@ def match_job(
         )
     )
 
-
+    # IMPORTANT:
+    # data_service.py creates "experience_level"
+    # for every prepared HJMI job.
     job_experience = clean_text(
         job.get(
-            "experience_category",
+            "experience_level",
             "",
         )
     )
-
 
     experience_result = (
         match_experience(
@@ -860,7 +772,6 @@ def match_job(
             job_experience,
         )
     )
-
 
     score = calculate_match_score(
         matched_skills_count=len(
@@ -886,7 +797,6 @@ def match_job(
         ),
     )
 
-
     reasons = build_match_reasons(
         matched_skills=matched_skills,
         matched_roles=matched_roles,
@@ -901,44 +811,32 @@ def match_job(
         ),
     )
 
-
+    # A job qualifies when:
+    # 1. At least two profile skills match, OR
+    # 2. A target role matches, OR
+    # 3. Specialization matches + at least one skill matches.
     qualifies = (
-        len(
-            matched_skills
-        )
+        len(matched_skills)
         >= MIN_SKILL_MATCHES
-        or bool(
-            matched_roles
-        )
+        or bool(matched_roles)
         or (
             specialization_match
-            and len(
-                matched_skills
-            ) >= 1
+            and len(matched_skills) >= 1
         )
     )
-
 
     return {
         "qualifies": qualifies,
         "match_score": score,
-        "match_label": (
-            get_match_label(
-                score,
-                len(
-                    matched_skills
-                ),
-            )
+        "match_label": get_match_label(
+            score,
+            len(matched_skills),
         ),
-        "matched_skills": (
-            matched_skills
-        ),
+        "matched_skills": matched_skills,
         "missing_profile_skills": (
             missing_skills
         ),
-        "matched_roles": (
-            matched_roles
-        ),
+        "matched_roles": matched_roles,
         "specialization_match": (
             specialization_match
         ),
@@ -987,10 +885,9 @@ def get_recommended_jobs(
     if not profile:
         return pd.DataFrame()
 
-
     working_df = jobs_df.copy()
 
-
+    # Only use jobs returned by the latest HJMI collection.
     if (
         only_active
         and "is_active"
@@ -998,9 +895,7 @@ def get_recommended_jobs(
     ):
 
         active_mask = (
-            working_df[
-                "is_active"
-            ]
+            working_df["is_active"]
             .fillna(False)
             .astype(bool)
         )
@@ -1012,13 +907,9 @@ def get_recommended_jobs(
             .copy()
         )
 
-
     matched_rows = []
 
-
-    for _, row in (
-        working_df.iterrows()
-    ):
+    for _, row in working_df.iterrows():
 
         job = row.to_dict()
 
@@ -1027,35 +918,21 @@ def get_recommended_jobs(
             job,
         )
 
-
-        if not match[
-            "qualifies"
-        ]:
-
+        if not match["qualifies"]:
             continue
 
-
-        result = dict(
-            job
-        )
-
+        result = dict(job)
 
         result.update(
             {
                 "hjmi_match_score": (
-                    match[
-                        "match_score"
-                    ]
+                    match["match_score"]
                 ),
                 "hjmi_match_label": (
-                    match[
-                        "match_label"
-                    ]
+                    match["match_label"]
                 ),
                 "hjmi_matched_skills": (
-                    match[
-                        "matched_skills"
-                    ]
+                    match["matched_skills"]
                 ),
                 "hjmi_missing_profile_skills": (
                     match[
@@ -1063,9 +940,7 @@ def get_recommended_jobs(
                     ]
                 ),
                 "hjmi_matched_roles": (
-                    match[
-                        "matched_roles"
-                    ]
+                    match["matched_roles"]
                 ),
                 "hjmi_specialization_match": (
                     match[
@@ -1093,27 +968,21 @@ def get_recommended_jobs(
                     ]
                 ),
                 "hjmi_match_reasons": (
-                    match[
-                        "match_reasons"
-                    ]
+                    match["match_reasons"]
                 ),
             }
         )
-
 
         matched_rows.append(
             result
         )
 
-
     if not matched_rows:
         return pd.DataFrame()
-
 
     results = pd.DataFrame(
         matched_rows
     )
-
 
     sort_columns = [
         "hjmi_match_score",
@@ -1122,7 +991,6 @@ def get_recommended_jobs(
     ascending = [
         False,
     ]
-
 
     if (
         "publication_date"
@@ -1137,7 +1005,6 @@ def get_recommended_jobs(
             False
         )
 
-
     results = (
         results.sort_values(
             by=sort_columns,
@@ -1149,20 +1016,14 @@ def get_recommended_jobs(
         )
     )
 
-
     if (
         limit is not None
-        and int(
-            limit
-        ) > 0
+        and int(limit) > 0
     ):
 
         results = results.head(
-            int(
-                limit
-            )
+            int(limit)
         )
-
 
     return results
 
@@ -1187,7 +1048,6 @@ def get_match_summary(
             "skill_matches": 0,
         }
 
-
     labels = (
         recommendations[
             "hjmi_match_label"
@@ -1195,7 +1055,6 @@ def get_match_summary(
         .fillna("")
         .astype(str)
     )
-
 
     return {
         "total_matches": len(
