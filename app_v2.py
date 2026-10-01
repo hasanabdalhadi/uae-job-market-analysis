@@ -79,8 +79,7 @@ about_page = st.Page(
 
 
 # ============================================================
-# ROUTER
-# Hidden because we are building our own premium sidebar.
+# HIDDEN ROUTER
 # ============================================================
 
 navigation = st.navigation(
@@ -100,183 +99,229 @@ navigation = st.navigation(
 
 
 # ============================================================
-# SIDEBAR DESIGN
+# GLOBAL SIDEBAR STYLE
 # ============================================================
 
-st.markdown(
+st.html(
     """
     <style>
 
-    /* Sidebar spacing */
+    section[data-testid="stSidebar"] {
+        background:
+            linear-gradient(
+                180deg,
+                #071923 0%,
+                #071c27 55%,
+                #061720 100%
+            );
+        border-right: 1px solid rgba(216, 173, 87, 0.10);
+    }
+
     section[data-testid="stSidebar"] > div {
-        padding-top: 0.8rem;
+        padding-top: 0.5rem;
     }
 
-    /* HJMI main brand */
-    .hjmi-main-brand {
-        padding: 14px 8px 18px 8px;
-        margin-bottom: 4px;
+    section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+        gap: 0.35rem;
     }
 
-    .hjmi-logo-row {
+    .hjmi-brand {
+        padding: 12px 4px 16px 4px;
+        margin-bottom: 2px;
+    }
+
+    .hjmi-brand-row {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 13px;
     }
 
-    .hjmi-logo {
-        width: 42px;
-        height: 42px;
-        border-radius: 12px;
+    .hjmi-brand-logo {
+        width: 48px;
+        height: 48px;
+        min-width: 48px;
+
         display: flex;
         align-items: center;
         justify-content: center;
 
+        border-radius: 13px;
+
         background:
             linear-gradient(
                 145deg,
-                #183c46,
-                #0d242d
+                #173944,
+                #0b242d
             );
 
         border: 1px solid rgba(216, 173, 87, 0.45);
 
         box-shadow:
-            0 8px 24px rgba(0, 0, 0, 0.24);
+            0 10px 25px rgba(0, 0, 0, 0.24);
 
-        color: #e1b85f;
+        color: #e2b95e;
 
-        font-size: 23px;
-        font-weight: 800;
-    }
-
-    .hjmi-name {
-        color: #f5f7f8;
-        font-size: 18px;
-        font-weight: 800;
-        letter-spacing: 0.8px;
-        line-height: 1.1;
-    }
-
-    .hjmi-full-name {
-        margin-top: 4px;
-        color: #d8ad57;
-        font-size: 7.5px;
+        font-family: Georgia, serif;
+        font-size: 27px;
         font-weight: 700;
-        letter-spacing: 1.3px;
-        line-height: 1.4;
     }
 
-    .hjmi-uae-line {
-        display: flex;
-        height: 3px;
+    .hjmi-brand-short {
+        color: #f7f8f8;
+        font-size: 19px;
+        font-weight: 800;
+        letter-spacing: 3px;
+        line-height: 1;
+    }
+
+    .hjmi-brand-full {
+        margin-top: 6px;
+
+        color: #d8ad57;
+
+        font-size: 7px;
+        font-weight: 700;
+
+        letter-spacing: 1.25px;
+        line-height: 1.5;
+    }
+
+    .hjmi-uae-stripe {
         width: 100%;
-        margin-top: 15px;
+        height: 3px;
+
+        display: flex;
+
+        margin-top: 16px;
+
+        border-radius: 100px;
         overflow: hidden;
-        border-radius: 20px;
+
+        opacity: 0.95;
     }
 
-    .hjmi-uae-red {
-        width: 25%;
-        background: #d93c3c;
+    .hjmi-uae-stripe span {
+        flex: 1;
+        height: 100%;
     }
 
-    .hjmi-uae-green {
-        width: 25%;
-        background: #2f9e62;
+    .hjmi-red {
+        background: #d53d45;
     }
 
-    .hjmi-uae-white {
-        width: 25%;
-        background: #e9eef0;
+    .hjmi-green {
+        background: #24965a;
     }
 
-    .hjmi-uae-black {
-        width: 25%;
-        background: #12181d;
+    .hjmi-white {
+        background: #e9eeee;
     }
 
-    .hjmi-nav-label {
+    .hjmi-black {
+        background: #11171c;
+    }
+
+    .hjmi-nav-heading {
         margin:
-            16px 8px 7px 8px;
+            17px 5px 5px 5px;
 
-        color: #6f8797;
+        color: #698391;
 
         font-size: 8px;
         font-weight: 800;
 
-        letter-spacing: 1.7px;
+        letter-spacing: 1.8px;
     }
 
-    .hjmi-account-box {
-        margin-top: 20px;
-        padding: 14px;
+    .hjmi-account-card {
+        margin:
+            5px 0 6px 0;
+
+        padding: 13px;
+
+        border-radius: 13px;
 
         border:
             1px solid rgba(216, 173, 87, 0.15);
 
-        border-radius: 14px;
-
         background:
-            rgba(15, 42, 50, 0.55);
+            linear-gradient(
+                145deg,
+                rgba(14, 46, 55, 0.80),
+                rgba(9, 31, 40, 0.82)
+            );
+    }
+
+    .hjmi-account-small {
+        color: #d8ad57;
+
+        font-size: 7px;
+        font-weight: 800;
+
+        letter-spacing: 1.4px;
+
+        margin-bottom: 5px;
     }
 
     .hjmi-account-title {
-        color: #f1f5f6;
+        color: #f4f6f7;
+
         font-size: 12px;
         font-weight: 700;
-        margin-bottom: 4px;
+
+        margin-bottom: 5px;
     }
 
-    .hjmi-account-text {
-        color: #718997;
+    .hjmi-account-description {
+        color: #78909d;
+
         font-size: 9px;
         line-height: 1.6;
     }
 
     .hjmi-version {
         margin:
-            20px 8px 5px 8px;
+            18px 5px 8px 5px;
 
-        color: #506774;
+        color: #49636f;
 
         font-size: 8px;
-        letter-spacing: 1px;
+
+        letter-spacing: 1.2px;
     }
 
     </style>
-    """,
-    unsafe_allow_html=True,
+    """
 )
 
 
 # ============================================================
-# CUSTOM SIDEBAR
+# SIDEBAR
 # ============================================================
 
 with st.sidebar:
 
     # --------------------------------------------------------
-    # BRAND — ALWAYS AT THE TOP
+    # HJMI BRAND — TOP
     # --------------------------------------------------------
 
-    st.markdown(
+    st.html(
         """
-        <div class="hjmi-main-brand">
+        <div class="hjmi-brand">
 
-            <div class="hjmi-logo-row">
+            <div class="hjmi-brand-row">
 
-                <div class="hjmi-logo">
+                <div class="hjmi-brand-logo">
                     H
                 </div>
 
                 <div>
 
-                    <div class="hjmi-name">
+                    <div class="hjmi-brand-short">
                         HJMI
                     </div>
 
-                    <div class="hjmi-full-name">
+                    <div class="hjmi-brand-full">
                         HASAN JOB MARKET INTELLIGENCE
                     </div>
 
@@ -284,16 +329,15 @@ with st.sidebar:
 
             </div>
 
-            <div class="hjmi-uae-line">
-                <div class="hjmi-uae-red"></div>
-                <div class="hjmi-uae-green"></div>
-                <div class="hjmi-uae-white"></div>
-                <div class="hjmi-uae-black"></div>
+            <div class="hjmi-uae-stripe">
+                <span class="hjmi-red"></span>
+                <span class="hjmi-green"></span>
+                <span class="hjmi-white"></span>
+                <span class="hjmi-black"></span>
             </div>
 
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
 
@@ -301,13 +345,12 @@ with st.sidebar:
     # CAREER DISCOVERY
     # --------------------------------------------------------
 
-    st.markdown(
+    st.html(
         """
-        <div class="hjmi-nav-label">
+        <div class="hjmi-nav-heading">
             CAREER DISCOVERY
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     st.page_link(
@@ -333,13 +376,12 @@ with st.sidebar:
     # MARKET INTELLIGENCE
     # --------------------------------------------------------
 
-    st.markdown(
+    st.html(
         """
-        <div class="hjmi-nav-label">
+        <div class="hjmi-nav-heading">
             MARKET INTELLIGENCE
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     st.page_link(
@@ -374,34 +416,37 @@ with st.sidebar:
 
 
     # --------------------------------------------------------
-    # MY HJMI — ACCOUNT PREVIEW
+    # MY HJMI
     # --------------------------------------------------------
 
-    st.markdown(
+    st.html(
         """
-        <div class="hjmi-nav-label">
+        <div class="hjmi-nav-heading">
             MY HJMI
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
-    st.markdown(
+    st.html(
         """
-        <div class="hjmi-account-box">
+        <div class="hjmi-account-card">
 
-            <div class="hjmi-account-title">
-                Your Career Space
+            <div class="hjmi-account-small">
+                PERSONAL CAREER SPACE
             </div>
 
-            <div class="hjmi-account-text">
-                Sign in to save jobs, track applications
-                and personalize your HJMI experience.
+            <div class="hjmi-account-title">
+                Your HJMI Account
+            </div>
+
+            <div class="hjmi-account-description">
+                Save opportunities, track applications,
+                manage your career profile and receive
+                personalized job alerts.
             </div>
 
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     st.button(
@@ -421,13 +466,12 @@ with st.sidebar:
     # PLATFORM
     # --------------------------------------------------------
 
-    st.markdown(
+    st.html(
         """
-        <div class="hjmi-nav-label">
+        <div class="hjmi-nav-heading">
             PLATFORM
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     st.page_link(
@@ -441,18 +485,17 @@ with st.sidebar:
     # VERSION
     # --------------------------------------------------------
 
-    st.markdown(
+    st.html(
         """
         <div class="hjmi-version">
-            HJMI 2.1 • UAE 🇦🇪
+            HJMI 2.1 • UAE MARKET INTELLIGENCE 🇦🇪
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
 
 # ============================================================
-# RUN SELECTED PAGE
+# RUN PAGE
 # ============================================================
 
 navigation.run()
