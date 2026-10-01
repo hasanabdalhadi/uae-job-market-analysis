@@ -22,10 +22,13 @@ COOKIE_EXPIRY_DAYS = 30
 # COOKIE MANAGER
 # ============================================================
 
-@st.cache_resource
 def get_cookie_manager():
     """
     Create the HJMI browser cookie manager.
+
+    Important:
+    CookieManager must not be wrapped with st.cache_resource
+    because it uses a Streamlit component internally.
     """
 
     return stx.CookieManager(
@@ -41,8 +44,9 @@ def get_supabase_client() -> Client:
     """
     Create a fresh Supabase client.
 
-    Supabase authentication state must not be shared
-    globally between Streamlit users.
+    Authentication clients are intentionally not cached
+    globally because Supabase auth state is mutable and
+    must not be shared between Streamlit users.
     """
 
     try:
@@ -149,8 +153,8 @@ def save_auth_cookie(
 
     except Exception as error:
 
-        # Temporary diagnostic output.
-        # Remove after persistent authentication is verified.
+        # Temporary diagnostic message.
+        # Remove after persistent login is verified.
         st.error(
             f"HJMI cookie error: {error}"
         )
@@ -193,6 +197,7 @@ def delete_auth_cookie():
 
     except Exception as error:
 
+        # Temporary diagnostic message.
         st.error(
             f"HJMI cookie delete error: {error}"
         )
@@ -210,6 +215,7 @@ def restore_session():
     from the persistent refresh-token cookie.
     """
 
+    # Session already exists.
     if (
         st.session_state.get(
             "hjmi_authenticated",
@@ -494,7 +500,7 @@ def is_authenticated() -> bool:
     """
     Return True when the user is authenticated.
 
-    If Streamlit session state is lost, HJMI attempts
+    If the Streamlit session is lost, HJMI attempts
     to restore authentication from the browser cookie.
     """
 
