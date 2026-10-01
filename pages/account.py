@@ -1,6 +1,6 @@
 # ============================================================
 # HJMI — ACCOUNT
-# Sign In • Create Account • Account Management
+# Sign In • Create Account • Saved Jobs • Account Management
 # ============================================================
 
 import streamlit as st
@@ -22,6 +22,12 @@ from services.auth_service import (
     is_authenticated,
     get_current_user,
     get_user_display_name,
+)
+
+from services.saved_jobs_service import (
+    get_saved_jobs,
+    get_saved_jobs_count,
+    remove_saved_job,
 )
 
 
@@ -48,11 +54,6 @@ st.html(
     """
     <style>
 
-    .hjmi-auth-wrap {
-        max-width: 620px;
-        margin: 0 auto;
-    }
-
     .hjmi-auth-intro {
         text-align: center;
         margin: 10px auto 28px auto;
@@ -64,7 +65,7 @@ st.html(
 
     .hjmi-auth-status {
         padding: 18px 20px;
-        margin: 18px 0;
+        margin: 18px 0 24px 0;
         border-radius: 16px;
         border: 1px solid rgba(216, 173, 87, 0.18);
         background: rgba(12, 40, 49, 0.65);
@@ -84,6 +85,75 @@ st.html(
         font-weight: 700;
     }
 
+    .hjmi-saved-heading {
+        margin-top: 30px;
+        margin-bottom: 6px;
+        color: #f3f6f7;
+        font-size: 24px;
+        font-weight: 800;
+    }
+
+    .hjmi-saved-subheading {
+        color: #78909d;
+        font-size: 13px;
+        line-height: 1.7;
+        margin-bottom: 18px;
+    }
+
+    .hjmi-saved-card {
+        padding: 18px 20px;
+        margin: 0 0 10px 0;
+        border-radius: 15px;
+        border: 1px solid rgba(216, 173, 87, 0.14);
+        background:
+            linear-gradient(
+                145deg,
+                rgba(12, 40, 49, 0.72),
+                rgba(8, 29, 38, 0.78)
+            );
+    }
+
+    .hjmi-saved-title {
+        color: #f4f6f7;
+        font-size: 17px;
+        font-weight: 750;
+        margin-bottom: 7px;
+    }
+
+    .hjmi-saved-company {
+        color: #d8ad57;
+        font-size: 12px;
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
+
+    .hjmi-saved-location {
+        color: #7f96a3;
+        font-size: 11px;
+    }
+
+    .hjmi-empty-saved {
+        padding: 28px 22px;
+        margin-top: 15px;
+        border-radius: 16px;
+        text-align: center;
+        border: 1px dashed rgba(216, 173, 87, 0.20);
+        background: rgba(9, 31, 40, 0.42);
+    }
+
+    .hjmi-empty-saved-title {
+        color: #f3f6f7;
+        font-size: 16px;
+        font-weight: 700;
+        margin-bottom: 7px;
+    }
+
+    .hjmi-empty-saved-text {
+        color: #78909d;
+        font-size: 12px;
+        line-height: 1.7;
+    }
+
     </style>
     """
 )
@@ -98,6 +168,30 @@ if is_authenticated():
     user = get_current_user()
     display_name = get_user_display_name()
 
+    email = getattr(
+        user,
+        "email",
+        "Not available",
+    )
+
+    # --------------------------------------------------------
+    # SAVED JOB DATA
+    # --------------------------------------------------------
+
+    try:
+        saved_jobs = get_saved_jobs()
+    except Exception:
+        saved_jobs = []
+
+    try:
+        saved_jobs_count = get_saved_jobs_count()
+    except Exception:
+        saved_jobs_count = len(saved_jobs)
+
+    # --------------------------------------------------------
+    # PAGE HEADER
+    # --------------------------------------------------------
+
     page_header(
         "MY HJMI",
         f"Welcome, {display_name}",
@@ -107,18 +201,16 @@ if is_authenticated():
         ),
     )
 
-    email = getattr(
-        user,
-        "email",
-        "Not available",
-    )
+    # --------------------------------------------------------
+    # ACCOUNT STATUS
+    # --------------------------------------------------------
 
     st.html(
         f"""
         <div class="hjmi-auth-status">
 
             <div class="hjmi-auth-status-title">
-                SIGNED IN
+                ACCOUNT ACTIVE
             </div>
 
             <div class="hjmi-auth-status-value">
@@ -137,39 +229,231 @@ if is_authenticated():
         """
     )
 
+    # --------------------------------------------------------
+    # ACCOUNT METRICS
+    # --------------------------------------------------------
+
     col1, col2, col3 = st.columns(3)
 
     with col1:
+
         st.metric(
             "Saved Jobs",
-            "0",
-            help="Saved opportunities will appear here.",
+            saved_jobs_count,
+            help=(
+                "Opportunities saved to your "
+                "personal HJMI account."
+            ),
         )
 
     with col2:
+
         st.metric(
             "Applications",
             "0",
-            help="Application tracking will appear here.",
+            help=(
+                "Application tracking will be "
+                "available in a future HJMI update."
+            ),
         )
 
     with col3:
+
         st.metric(
             "Job Alerts",
             "0",
-            help="Personalized alerts will appear here.",
+            help=(
+                "Personalized job alerts will be "
+                "available in a future HJMI update."
+            ),
         )
 
-    st.info(
-        "Your account is active. Saved Jobs, Applications and "
-        "Job Alerts will be connected to your HJMI profile next."
+    # ========================================================
+    # SAVED JOBS
+    # ========================================================
+
+    st.html(
+        """
+        <div class="hjmi-saved-heading">
+            Saved Jobs
+        </div>
+
+        <div class="hjmi-saved-subheading">
+            Opportunities you saved while exploring the
+            UAE technology job market.
+        </div>
+        """
     )
+
+    if not saved_jobs:
+
+        st.html(
+            """
+            <div class="hjmi-empty-saved">
+
+                <div class="hjmi-empty-saved-title">
+                    No saved jobs yet
+                </div>
+
+                <div class="hjmi-empty-saved-text">
+                    Explore Find Jobs and save opportunities
+                    you want to review later.
+                </div>
+
+            </div>
+            """
+        )
+
+        st.page_link(
+            "pages/find_jobs.py",
+            label="Explore Jobs",
+            icon="🔎",
+            use_container_width=True,
+        )
+
+    else:
+
+        for index, job in enumerate(saved_jobs):
+
+            job_id = str(
+                job.get(
+                    "job_id",
+                    "",
+                )
+            )
+
+            job_title = (
+                job.get(
+                    "job_title",
+                    "",
+                )
+                or "Untitled Opportunity"
+            )
+
+            company = (
+                job.get(
+                    "company",
+                    "",
+                )
+                or "Company not specified"
+            )
+
+            location = (
+                job.get(
+                    "location",
+                    "",
+                )
+                or "Location not specified"
+            )
+
+            job_url = (
+                job.get(
+                    "job_url",
+                    "",
+                )
+                or ""
+            )
+
+            st.html(
+                f"""
+                <div class="hjmi-saved-card">
+
+                    <div class="hjmi-saved-title">
+                        {job_title}
+                    </div>
+
+                    <div class="hjmi-saved-company">
+                        {company}
+                    </div>
+
+                    <div class="hjmi-saved-location">
+                        📍 {location}
+                    </div>
+
+                </div>
+                """
+            )
+
+            action_col1, action_col2 = st.columns(
+                [3, 1]
+            )
+
+            with action_col1:
+
+                if job_url:
+
+                    st.link_button(
+                        "View Job",
+                        job_url,
+                        use_container_width=True,
+                    )
+
+                else:
+
+                    st.button(
+                        "Job Link Unavailable",
+                        key=f"no_link_{index}",
+                        disabled=True,
+                        use_container_width=True,
+                    )
+
+            with action_col2:
+
+                if st.button(
+                    "Remove",
+                    key=f"remove_saved_{job_id}_{index}",
+                    use_container_width=True,
+                    type="secondary",
+                ):
+
+                    success = remove_saved_job(
+                        job_id
+                    )
+
+                    if success:
+
+                        st.toast(
+                            "Job removed from My HJMI."
+                        )
+
+                        st.rerun()
+
+                    else:
+
+                        st.error(
+                            "HJMI could not remove "
+                            "this saved job."
+                        )
+
+            st.divider()
+
+    # ========================================================
+    # ACCOUNT ROADMAP
+    # ========================================================
+
+    info_box(
+        "Your HJMI Workspace",
+        (
+            "Saved Jobs are now connected to your account. "
+            "Application tracking, personalized job alerts "
+            "and career preferences will be added as the "
+            "HJMI platform develops."
+        ),
+        "👤",
+    )
+
+    # ========================================================
+    # SIGN OUT
+    # ========================================================
+
+    st.divider()
 
     if st.button(
         "Sign Out",
         use_container_width=True,
         type="secondary",
     ):
+
         sign_out()
         st.rerun()
 
@@ -195,7 +479,7 @@ page_header(
 st.html(
     """
     <div class="hjmi-auth-intro">
-        Your HJMI account will become the central place for
+        Your HJMI account is your personal space for
         saved jobs, application tracking, career preferences
         and personalized opportunity alerts.
     </div>
@@ -217,7 +501,9 @@ sign_in_tab, create_account_tab = st.tabs(
 
 with sign_in_tab:
 
-    st.subheader("Welcome back")
+    st.subheader(
+        "Welcome back"
+    )
 
     with st.form(
         "hjmi_sign_in_form",
