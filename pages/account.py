@@ -485,22 +485,14 @@ if is_authenticated():
 
     with col1:
 
-        if st.button(
-            f"Recommended  •  {recommendation_count}",
-            key="open_recommended_results",
+        st.metric(
+            "Recommended",
+            recommendation_count,
             help=(
-                "Show current HJMI opportunities matching "
+                "Current HJMI opportunities matching "
                 "signals from your Career Profile."
             ),
-            use_container_width=True,
-            type="primary",
-        ):
-            st.session_state["hjmi_show_recommended"] = (
-                not st.session_state.get(
-                    "hjmi_show_recommended",
-                    False,
-                )
-            )
+        )
 
 
     with col2:
@@ -536,110 +528,6 @@ if is_authenticated():
                 "Career Profile completion."
             ),
         )
-
-
-    # ========================================================
-    # QUICK RECOMMENDED RESULTS
-    # ========================================================
-
-    if st.session_state.get("hjmi_show_recommended", False):
-
-        st.html(
-            """
-            <div class="hjmi-section-heading">
-                Recommended Results
-            </div>
-            <div class="hjmi-section-subheading">
-                Your current HJMI Career Match results.
-            </div>
-            """
-        )
-
-        if not career_profile:
-            st.info(
-                "Create your Career Profile to activate "
-                "personalized job recommendations."
-            )
-
-        elif not matching_ready:
-            st.info(
-                "Add skills, specialization or target roles "
-                "to activate personalized matching."
-            )
-
-        elif recommendations is None or recommendations.empty:
-            st.info("No current matching opportunities were found.")
-
-        else:
-            for quick_index in range(len(recommendations)):
-
-                quick_job = recommendations.iloc[quick_index].to_dict()
-
-                quick_title = (
-                    quick_job.get("job_title_display", "")
-                    or quick_job.get("job_title", "")
-                    or "Untitled Opportunity"
-                )
-                quick_company = (
-                    quick_job.get("company_display", "")
-                    or quick_job.get("company", "")
-                    or "Company not specified"
-                )
-                quick_location = (
-                    quick_job.get("location_display", "")
-                    or quick_job.get("location", "")
-                    or "Location not specified"
-                )
-                quick_url = quick_job.get("job_url", "") or ""
-                quick_score = quick_job.get("hjmi_match_score", 0) or 0
-                quick_label = (
-                    quick_job.get("hjmi_match_label", "")
-                    or "Profile Match"
-                )
-                quick_skills = list_value(
-                    quick_job.get("hjmi_matched_skills", [])
-                )
-                quick_skills_text = (
-                    ", ".join(str(skill) for skill in quick_skills[:8])
-                    if quick_skills
-                    else "Profile signals"
-                )
-
-                st.html(
-                    f"""
-                    <div class="hjmi-job-card">
-                        <div class="hjmi-job-title">
-                            {safe(quick_title)}
-                        </div>
-                        <div class="hjmi-job-company">
-                            {safe(quick_company)}
-                        </div>
-                        <div class="hjmi-job-location">
-                            📍 {safe(quick_location)}
-                        </div>
-                        <div>
-                            <span class="hjmi-match-badge">
-                                {safe(quick_label)}
-                            </span>
-                            <span class="hjmi-match-score">
-                                HJMI Match {safe(quick_score)}%
-                            </span>
-                        </div>
-                        <div class="hjmi-match-reason">
-                            Shared skills: {safe(quick_skills_text)}
-                        </div>
-                    </div>
-                    """
-                )
-
-                if quick_url:
-                    st.link_button(
-                        "View Job",
-                        quick_url,
-                        use_container_width=True,
-                    )
-
-                st.divider()
 
 
     # ========================================================
