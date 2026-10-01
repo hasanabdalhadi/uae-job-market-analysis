@@ -4,6 +4,7 @@
 # ============================================================
 
 import pandas as pd
+import plotly.express as px
 import streamlit as st
 
 from components.theme import (
@@ -33,6 +34,113 @@ from services.data_service import (
     parse_skills,
     search_jobs,
 )
+
+
+# ============================================================
+# CHART HELPERS
+# ============================================================
+
+def hjmi_horizontal_bar(
+    data,
+    label_col,
+    value_col="Opportunities",
+    *,
+    height=None,
+    max_items=10,
+):
+    """Render a clean HJMI horizontal ranking chart."""
+    if data is None or data.empty:
+        return
+
+    chart_data = data[[label_col, value_col]].copy()
+    chart_data[label_col] = chart_data[label_col].fillna("").astype(str).str.strip()
+    chart_data[value_col] = pd.to_numeric(
+        chart_data[value_col],
+        errors="coerce",
+    ).fillna(0)
+
+    chart_data = chart_data[
+        chart_data[label_col].ne("")
+        & chart_data[value_col].gt(0)
+    ]
+
+    if chart_data.empty:
+        return
+
+    chart_data = (
+        chart_data
+        .sort_values(
+            [value_col, label_col],
+            ascending=[False, True],
+        )
+        .head(max_items)
+        .sort_values(
+            [value_col, label_col],
+            ascending=[True, False],
+        )
+    )
+
+    if height is None:
+        height = max(340, 48 * len(chart_data) + 105)
+
+    fig = px.bar(
+        chart_data,
+        x=value_col,
+        y=label_col,
+        orientation="h",
+        text=value_col,
+        custom_data=[label_col, value_col],
+    )
+
+    fig.update_traces(
+        marker_color="#d8ad57",
+        texttemplate="%{text:,.0f}",
+        textposition="outside",
+        cliponaxis=False,
+        hovertemplate=(
+            f"<b>%{{customdata[0]}}</b><br>"
+            f"{value_col}: %{{customdata[1]:,.0f}}"
+            "<extra></extra>"
+        ),
+    )
+
+    fig.update_layout(
+        height=height,
+        margin=dict(l=10, r=55, t=10, b=45),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#dce7ef"),
+        showlegend=False,
+        hoverlabel=dict(
+            bgcolor="#0b2433",
+            font_color="#ffffff",
+            bordercolor="#d8ad57",
+        ),
+        xaxis_title=value_col,
+        yaxis_title=None,
+        bargap=0.24,
+    )
+
+    fig.update_xaxes(
+        rangemode="tozero",
+        gridcolor="rgba(120,145,160,0.18)",
+        zeroline=False,
+        tickformat="d",
+    )
+
+    fig.update_yaxes(
+        showgrid=False,
+        automargin=True,
+    )
+
+    st.plotly_chart(
+        fig,
+        use_container_width=True,
+        config={
+            "displaylogo": False,
+            "responsive": True,
+        },
+    )
 
 
 # ============================================================
@@ -290,17 +398,16 @@ if skills_rank.empty:
 
 top_skills = (
     skills_rank
-    .head(15)
+    .head(10)
     .rename_axis("Skill")
     .reset_index(name="Opportunities")
 )
 
 
-st.bar_chart(
+hjmi_horizontal_bar(
     top_skills,
-    x="Skill",
-    y="Opportunities",
-    use_container_width=True,
+    "Skill",
+    max_items=10,
 )
 
 
@@ -633,11 +740,10 @@ if top_skill_roles.empty:
 
 else:
 
-    st.bar_chart(
+    hjmi_horizontal_bar(
         top_skill_roles,
-        x="Job Role",
-        y="Opportunities",
-        use_container_width=True,
+        "Job Role",
+        max_items=10,
     )
 
 
@@ -676,11 +782,10 @@ if top_skill_companies.empty:
 
 else:
 
-    st.bar_chart(
+    hjmi_horizontal_bar(
         top_skill_companies,
-        x="Company",
-        y="Opportunities",
-        use_container_width=True,
+        "Company",
+        max_items=10,
     )
 
 
@@ -719,11 +824,10 @@ if top_skill_locations.empty:
 
 else:
 
-    st.bar_chart(
+    hjmi_horizontal_bar(
         top_skill_locations,
-        x="Location",
-        y="Opportunities",
-        use_container_width=True,
+        "Location",
+        max_items=10,
     )
 
 
@@ -788,11 +892,10 @@ if related_skill_counter:
     )
 
 
-    st.bar_chart(
+    hjmi_horizontal_bar(
         related_skills_df,
-        x="Related Skill",
-        y="Opportunities",
-        use_container_width=True,
+        "Related Skill",
+        max_items=10,
     )
 
 
@@ -954,11 +1057,10 @@ experience_data = (
 )
 
 
-st.bar_chart(
+hjmi_horizontal_bar(
     experience_data,
-    x="Experience Level",
-    y="Opportunities",
-    use_container_width=True,
+    "Experience Level",
+    max_items=7,
 )
 
 
@@ -1003,11 +1105,11 @@ salary_data = pd.DataFrame(
 )
 
 
-st.bar_chart(
+hjmi_horizontal_bar(
     salary_data,
-    x="Salary Status",
-    y="Opportunities",
-    use_container_width=True,
+    "Salary Status",
+    max_items=2,
+    height=300,
 )
 
 
