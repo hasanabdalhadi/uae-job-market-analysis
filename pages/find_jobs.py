@@ -45,6 +45,15 @@ from services.application_service import (
     get_applications,
 )
 
+from services.career_profile_service import (
+    get_career_profile,
+    profile_ready_for_matching,
+)
+
+from services.matching_service import (
+    get_recommended_jobs,
+)
+
 
 # ============================================================
 # PAGE CONFIG
@@ -153,6 +162,94 @@ data_status(
 
 
 # ============================================================
+# PERSONALIZED JOB MODE
+# ============================================================
+
+authenticated = is_authenticated()
+career_profile = None
+personalized_ready = False
+recommended_jobs = None
+
+if authenticated:
+
+    try:
+        career_profile = get_career_profile()
+
+        personalized_ready = (
+            profile_ready_for_matching(
+                career_profile
+            )
+            if career_profile
+            else False
+        )
+
+        if personalized_ready:
+            recommended_jobs = get_recommended_jobs(
+                df,
+                career_profile,
+                only_active=True,
+            )
+
+    except Exception:
+        career_profile = None
+        personalized_ready = False
+        recommended_jobs = None
+
+
+explorer_mode = st.segmented_control(
+    "Job Explorer Mode",
+    options=[
+        "All Jobs",
+        "Recommended for Me",
+    ],
+    default="All Jobs",
+)
+
+
+if explorer_mode == "Recommended for Me":
+
+    if not authenticated:
+
+        info_box(
+            "Sign in required",
+            (
+                "Sign in to My HJMI to use personalized Career Match "
+                "recommendations."
+            ),
+            "🔐",
+        )
+
+    elif not career_profile:
+
+        info_box(
+            "Career Profile required",
+            (
+                "Create your Career Profile to activate personalized "
+                "job recommendations."
+            ),
+            "🎯",
+        )
+
+    elif not personalized_ready:
+
+        info_box(
+            "Complete your Career Profile",
+            (
+                "Add skills, specialization or target roles to activate "
+                "personalized matching."
+            ),
+            "🎯",
+        )
+
+    else:
+
+        st.caption(
+            "HJMI Match measures overlap between your Career Profile "
+            "and available job data. It does not predict hiring or acceptance."
+        )
+
+
+# ============================================================
 # STATUS EXPLANATION
 # ============================================================
 
@@ -200,6 +297,22 @@ elif status_choice == "All":
 else:
 
     working_df = get_active_jobs(df)
+
+
+# ============================================================
+# APPLY PERSONALIZED MODE
+# ============================================================
+
+if explorer_mode == "Recommended for Me":
+
+    if (
+        authenticated
+        and personalized_ready
+        and recommended_jobs is not None
+    ):
+        working_df = recommended_jobs.copy()
+    else:
+        working_df = df.iloc[0:0].copy()
 
 
 # ============================================================
@@ -566,6 +679,62 @@ else:
     # ========================================================
 
     for row_index, job in jobs_to_display.iterrows():
+
+        if explorer_mode == "Recommended for Me":
+
+            match_score = job.get(
+                "hjmi_match_score",
+                0,
+            ) or 0
+
+            match_label = job.get(
+                "hjmi_match_label",
+                "Profile Match",
+            ) or "Profile Match"
+
+            matched_skills = job.get(
+                "hjmi_matched_skills",
+                [],
+            )
+
+            if not isinstance(
+                matched_skills,
+                (list, tuple),
+            ):
+                matched_skills = []
+
+            match_reasons = job.get(
+                "hjmi_match_reasons",
+                [],
+            )
+
+            if not isinstance(
+                match_reasons,
+                (list, tuple),
+            ):
+                match_reasons = []
+
+            st.markdown(
+                f"**HJMI Match: {match_score}% — {match_label}**"
+            )
+
+            if matched_skills:
+                st.caption(
+                    "Shared skills: "
+                    + ", ".join(
+                        str(skill)
+                        for skill in matched_skills[:10]
+                    )
+                )
+
+            if match_reasons:
+                st.caption(
+                    "Why this matched: "
+                    + " • ".join(
+                        str(reason)
+                        for reason in match_reasons
+                    )
+                )
 
         job_card(
             job,
