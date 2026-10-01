@@ -6,3 +6,4 @@ streamlit
 requests
 supabase
 extra-streamlit-components
+pypdf
