@@ -253,6 +253,32 @@ st.html(
         letter-spacing: 0.4px;
     }
 
+    .hjmi-workspace-note {
+        color: #7f96a3;
+        font-size: 12px;
+        margin: -6px 0 18px 0;
+    }
+
+    div[data-testid="stMetric"] {
+        background: linear-gradient(145deg, rgba(12,40,49,.72), rgba(8,29,38,.78));
+        border: 1px solid rgba(216,173,87,.14);
+        border-radius: 14px;
+        padding: 14px 16px;
+        min-height: 108px;
+    }
+
+    div[data-testid="stTabs"] [data-baseweb="tab-list"] {
+        gap: 8px;
+        border-bottom: 1px solid rgba(127,150,163,.18);
+        padding-bottom: 8px;
+    }
+
+    div[data-testid="stTabs"] button[role="tab"] {
+        border-radius: 10px;
+        padding: 9px 13px;
+        background: rgba(12,40,49,.42);
+    }
+
     </style>
     """
 )
@@ -479,29 +505,15 @@ if is_authenticated():
 
 
     # ========================================================
-    # ACCOUNT STATUS
+    # WORKSPACE STATUS
     # ========================================================
 
     st.html(
         f"""
-        <div class="hjmi-auth-status">
-
-            <div class="hjmi-auth-status-title">
-                ACCOUNT ACTIVE
-            </div>
-
-            <div class="hjmi-auth-status-value">
-                {safe(display_name)}
-            </div>
-
-            <div style="
-                color:#7f96a3;
-                margin-top:6px;
-                font-size:12px;
-            ">
-                {safe(email)}
-            </div>
-
+        <div class="hjmi-workspace-note">
+            Signed in as <strong>{safe(email)}</strong>
+            &nbsp;•&nbsp; Career Profile
+            <strong>{profile_completion}% complete</strong>.
         </div>
         """
     )
@@ -531,6 +543,18 @@ if is_authenticated():
     with col2:
 
         st.metric(
+            "Alerts",
+            unread_alerts_count,
+            help=(
+                "Unread Smart Job Alerts for newly discovered "
+                "matching opportunities."
+            ),
+        )
+
+
+    with col3:
+
+        st.metric(
             "Saved Jobs",
             saved_jobs_count,
             help=(
@@ -540,7 +564,7 @@ if is_authenticated():
         )
 
 
-    with col3:
+    with col4:
 
         st.metric(
             "Applications",
@@ -548,18 +572,6 @@ if is_authenticated():
             help=(
                 "Applications currently tracked "
                 "inside your HJMI workspace."
-            ),
-        )
-
-
-    with col4:
-
-        st.metric(
-            "Alerts",
-            unread_alerts_count,
-            help=(
-                "Unread Smart Job Alerts for newly discovered "
-                "matching opportunities."
             ),
         )
 
@@ -719,43 +731,6 @@ if is_authenticated():
         # ----------------------------------------------------
 
         else:
-
-            summary_col1, summary_col2, summary_col3 = (
-                st.columns(
-                    3
-                )
-            )
-
-            with summary_col1:
-
-                st.metric(
-                    "Total Matches",
-                    match_summary.get(
-                        "total_matches",
-                        0,
-                    ),
-                )
-
-            with summary_col2:
-
-                st.metric(
-                    "Strong Matches",
-                    match_summary.get(
-                        "strong_matches",
-                        0,
-                    ),
-                )
-
-            with summary_col3:
-
-                st.metric(
-                    "Good Matches",
-                    match_summary.get(
-                        "good_matches",
-                        0,
-                    ),
-                )
-
 
             st.caption(
                 "HJMI Match measures overlap between your "
