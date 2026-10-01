@@ -3,6 +3,8 @@
 # Hasan Job Market Intelligence
 # ============================================================
 
+import html
+
 import streamlit as st
 
 from components.theme import (
@@ -72,6 +74,35 @@ st.set_page_config(
 # ============================================================
 
 apply_theme()
+
+st.html(
+    """
+    <style>
+    .hjmi-match-strip {
+        margin: 18px 0 -1px 0;
+        padding: 13px 18px;
+        border: 1px solid rgba(216,173,87,.22);
+        border-bottom: 0;
+        border-radius: 14px 14px 0 0;
+        background: linear-gradient(90deg, rgba(216,173,87,.10), rgba(10,42,52,.72));
+    }
+    .hjmi-match-strip-top {
+        display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    }
+    .hjmi-match-score {
+        color:#f1d07a; font-size:14px; font-weight:800;
+    }
+    .hjmi-match-label {
+        color:#d9e3e7; font-size:12px; font-weight:700;
+        padding:3px 8px; border-radius:999px;
+        background:rgba(255,255,255,.06);
+    }
+    .hjmi-match-detail {
+        color:#8399a5; font-size:11px; line-height:1.6; margin-top:5px;
+    }
+    </style>
+    """
+)
 
 
 # ============================================================
@@ -250,36 +281,28 @@ if explorer_mode == "Recommended for Me":
 
 
 # ============================================================
-# STATUS EXPLANATION
+# SEARCH + STATUS
 # ============================================================
 
-info_box(
-    "Opportunity status",
-    (
-        "Active means the opportunity appeared in HJMI's latest "
-        "market collection. New means HJMI discovered it for the "
-        "first time during the latest update. Historical means the "
-        "record is retained by HJMI but was not returned in the "
-        "latest collection."
-    ),
-    "ⓘ",
+search_text = st.text_input(
+    "Search opportunities",
+    placeholder="Search job title, company, skill, category or keyword...",
 )
-
-
-# ============================================================
-# STATUS FILTER
-# ============================================================
 
 status_choice = st.segmented_control(
     "Opportunity Status",
-    options=[
-        "Active",
-        "New",
-        "Historical",
-        "All",
-    ],
+    options=["Active", "New", "Historical", "All"],
     default="Active",
 )
+
+with st.expander("What do Active, New and Historical mean?"):
+    st.markdown(
+        """
+        **Active** — returned in HJMI's latest market collection.  
+        **New** — first discovered by HJMI during the latest update.  
+        **Historical** — retained by HJMI but not returned in the latest collection.
+        """
+    )
 
 
 if status_choice == "New":
@@ -316,21 +339,6 @@ if explorer_mode == "Recommended for Me":
 
 
 # ============================================================
-# SEARCH
-# ============================================================
-
-st.markdown("### 🔎 Search")
-
-search_text = st.text_input(
-    "Search jobs",
-    placeholder=(
-        "Search job title, company, skill, category or keyword..."
-    ),
-    label_visibility="collapsed",
-)
-
-
-# ============================================================
 # FILTER OPTIONS
 # ============================================================
 
@@ -343,72 +351,37 @@ filter_options = get_filter_options(
 # FILTER PANEL
 # ============================================================
 
-st.markdown("### ◇ Refine Results")
+with st.expander("Refine Results", expanded=False):
+    filter_row_1 = st.columns(3)
 
-filter_row_1 = st.columns(3)
+    with filter_row_1[0]:
+        location = st.selectbox(
+            "Location", ["All Locations", *filter_options["locations"]]
+        )
 
+    with filter_row_1[1]:
+        company = st.selectbox(
+            "Company", ["All Companies", *filter_options["companies"]]
+        )
 
-with filter_row_1[0]:
+    with filter_row_1[2]:
+        skill = st.selectbox(
+            "Skill", ["All Skills", *filter_options["skills"]]
+        )
 
-    location = st.selectbox(
-        "Location",
-        [
-            "All Locations",
-            *filter_options["locations"],
-        ],
-    )
+    filter_row_2 = st.columns(3)
 
+    with filter_row_2[0]:
+        experience = st.selectbox(
+            "Experience Level",
+            ["All Experience Levels", *filter_options["experience_levels"]],
+        )
 
-with filter_row_1[1]:
+    with filter_row_2[1]:
+        graduate_only = st.checkbox("🎓 Fresh Graduate Friendly")
 
-    company = st.selectbox(
-        "Company",
-        [
-            "All Companies",
-            *filter_options["companies"],
-        ],
-    )
-
-
-with filter_row_1[2]:
-
-    skill = st.selectbox(
-        "Skill",
-        [
-            "All Skills",
-            *filter_options["skills"],
-        ],
-    )
-
-
-filter_row_2 = st.columns(3)
-
-
-with filter_row_2[0]:
-
-    experience = st.selectbox(
-        "Experience Level",
-        [
-            "All Experience Levels",
-            *filter_options[
-                "experience_levels"
-            ],
-        ],
-    )
-
-
-with filter_row_2[1]:
-
-    graduate_only = st.checkbox(
-        "🎓 Fresh Graduate Friendly"
-    )
-
-
-with filter_row_2[2]:
-
-    salary_only = st.checkbox(
-        "💰 Salary Disclosed"
-    )
+    with filter_row_2[2]:
+        salary_only = st.checkbox("💰 Salary Disclosed")
 
 
 # ============================================================
@@ -508,8 +481,6 @@ else:
 # ============================================================
 # RESULTS HEADER
 # ============================================================
-
-st.markdown("---")
 
 result_count(
     len(filtered_jobs),
@@ -714,27 +685,43 @@ else:
             ):
                 match_reasons = []
 
-            st.markdown(
-                f"**HJMI Match: {match_score}% — {match_label}**"
-            )
+            match_details = []
 
             if matched_skills:
-                st.caption(
+                match_details.append(
                     "Shared skills: "
-                    + ", ".join(
-                        str(skill)
-                        for skill in matched_skills[:10]
-                    )
+                    + ", ".join(str(skill) for skill in matched_skills[:10])
                 )
 
             if match_reasons:
-                st.caption(
+                match_details.append(
                     "Why this matched: "
-                    + " • ".join(
-                        str(reason)
-                        for reason in match_reasons
-                    )
+                    + " • ".join(str(reason) for reason in match_reasons)
                 )
+
+            detail_html = ""
+            if match_details:
+                detail_html = (
+                    '<div class="hjmi-match-detail">'
+                    + html.escape("  •  ".join(match_details))
+                    + "</div>"
+                )
+
+            st.html(
+                f"""
+                <div class="hjmi-match-strip">
+                    <div class="hjmi-match-strip-top">
+                        <span class="hjmi-match-score">
+                            HJMI Match {int(round(float(match_score)))}%
+                        </span>
+                        <span class="hjmi-match-label">
+                            {html.escape(str(match_label))}
+                        </span>
+                    </div>
+                    {detail_html}
+                </div>
+                """
+            )
 
         job_card(
             job,
@@ -989,53 +976,27 @@ else:
 
 
 # ============================================================
-# SALARY TRANSPARENCY
+# TRANSPARENCY NOTES
 # ============================================================
 
-info_box(
-    "Salary information",
-    (
-        "HJMI shows salary information when it is available "
-        "in the source listing. When salary information is not "
-        "provided, HJMI displays 'To be discussed after the "
-        "interview' instead of inventing or estimating a salary."
-    ),
-    "💰",
-)
+with st.expander("HJMI job-data and tracking notes"):
+    st.markdown(
+        """
+        **Salary information**  
+        HJMI shows salary information when it is available in the source
+        listing. When it is missing, HJMI displays **“To be discussed after
+        the interview”** instead of inventing an estimate.
 
+        **Fresh Graduate Friendly**  
+        This signal uses listing text such as fresh graduate, entry level,
+        no experience required, or an experience requirement beginning at
+        zero. Missing experience alone does not make a job graduate-friendly.
 
-# ============================================================
-# GRADUATE TRANSPARENCY
-# ============================================================
-
-info_box(
-    "Fresh Graduate Friendly",
-    (
-        "This filter uses signals available in the listing text, "
-        "such as fresh graduate, entry level, no experience "
-        "required or an experience requirement beginning at zero. "
-        "A job is not automatically marked graduate-friendly just "
-        "because its experience requirement is missing."
-    ),
-    "🎓",
-)
-
-
-# ============================================================
-# APPLICATION TRACKING NOTE
-# ============================================================
-
-info_box(
-    "Applying and tracking opportunities",
-    (
-        "The View Opportunity button opens the external source "
-        "listing. Signed-in users can save opportunities for later "
-        "or add jobs they have applied for to the HJMI Application "
-        "Tracker. Tracking a job does not submit an application "
-        "to the employer."
-    ),
-    "↗",
-)
+        **Applications**  
+        **View Opportunity** opens the external source listing. Saving or
+        tracking a job inside HJMI does not submit an application to the employer.
+        """
+    )
 
 
 # ============================================================
