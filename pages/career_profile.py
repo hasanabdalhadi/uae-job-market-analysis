@@ -1,7 +1,9 @@
 # ============================================================
 # HJMI — CAREER PROFILE
-# Personal Career Intelligence
+# Career Profile • CV Intelligence • Career Match
 # ============================================================
+
+import html
 
 import streamlit as st
 
@@ -24,6 +26,10 @@ from services.career_profile_service import (
     save_career_profile,
     get_profile_completion,
     profile_ready_for_matching,
+)
+
+from services.cv_service import (
+    analyze_cv,
 )
 
 
@@ -79,9 +85,77 @@ st.html(
         margin-top: 7px;
     }
 
+    .hjmi-cv-card {
+        padding: 22px;
+        border-radius: 16px;
+        border: 1px solid rgba(216, 173, 87, 0.16);
+        background:
+            linear-gradient(
+                145deg,
+                rgba(9, 31, 40, 0.72),
+                rgba(7, 25, 34, 0.78)
+            );
+        margin-top: 14px;
+        margin-bottom: 14px;
+    }
+
+    .hjmi-cv-label {
+        color: #d8ad57;
+        font-size: 9px;
+        font-weight: 800;
+        letter-spacing: 1.4px;
+        margin-bottom: 6px;
+    }
+
+    .hjmi-cv-value {
+        color: #f3f6f7;
+        font-size: 14px;
+        line-height: 1.7;
+    }
+
     </style>
     """
 )
+
+
+# ============================================================
+# HELPERS
+# ============================================================
+
+def safe(value):
+    return html.escape(
+        str(value or "")
+    )
+
+
+def merge_unique(
+    original,
+    new_values,
+):
+    result = []
+    seen = set()
+
+    for value in (
+        list(original or [])
+        + list(new_values or [])
+    ):
+
+        value = str(
+            value or ""
+        ).strip()
+
+        if not value:
+            continue
+
+        key = value.lower()
+
+        if key in seen:
+            continue
+
+        seen.add(key)
+        result.append(value)
+
+    return result
 
 
 # ============================================================
@@ -140,9 +214,8 @@ page_header(
     "HJMI CAREER MATCH",
     "Career Profile",
     (
-        "Tell HJMI about your specialization, skills, career "
-        "interests and preferred locations. This information "
-        "will power personalized job matching."
+        "Build your career profile manually or use CV Intelligence "
+        "to identify skills and career information from your CV."
     ),
 )
 
@@ -193,12 +266,13 @@ st.progress(
 # ============================================================
 
 info_box(
-    "How HJMI Career Match will work",
+    "How HJMI Career Match works",
     (
-        "HJMI will compare your Career Profile with technology "
-        "opportunities in the UAE job dataset. A job does not "
-        "need to match every skill in your profile. Even partial "
-        "skill overlap can make an opportunity relevant."
+        "Your Career Profile will be compared with technology "
+        "opportunities in the HJMI UAE dataset. Jobs do not need "
+        "to match every skill. Partial skill overlap, target roles, "
+        "specialization, experience and location can all contribute "
+        "to identifying relevant opportunities."
     ),
     "◈",
 )
@@ -262,10 +336,6 @@ with st.form(
     "hjmi_career_profile_form"
 ):
 
-    # --------------------------------------------------------
-    # SPECIALIZATION
-    # --------------------------------------------------------
-
     specialization = st.text_input(
         "Specialization / Field of Study",
         value=specialization_value,
@@ -279,10 +349,6 @@ with st.form(
         ),
     )
 
-
-    # --------------------------------------------------------
-    # TARGET ROLES
-    # --------------------------------------------------------
 
     target_roles_text = st.text_area(
         "Target Job Roles",
@@ -300,10 +366,6 @@ with st.form(
     )
 
 
-    # --------------------------------------------------------
-    # SKILLS
-    # --------------------------------------------------------
-
     skills_text = st.text_area(
         "Skills",
         value=", ".join(
@@ -320,10 +382,6 @@ with st.form(
         height=120,
     )
 
-
-    # --------------------------------------------------------
-    # EXPERIENCE
-    # --------------------------------------------------------
 
     experience_options = [
         "Not Specified",
@@ -359,10 +417,6 @@ with st.form(
     )
 
 
-    # --------------------------------------------------------
-    # LOCATIONS
-    # --------------------------------------------------------
-
     preferred_locations_text = st.text_area(
         "Preferred UAE Locations",
         value=", ".join(
@@ -378,10 +432,6 @@ with st.form(
     )
 
 
-    # --------------------------------------------------------
-    # SUBMIT
-    # --------------------------------------------------------
-
     save_profile = (
         st.form_submit_button(
             "Save Career Profile",
@@ -392,7 +442,7 @@ with st.form(
 
 
 # ============================================================
-# SAVE PROFILE
+# SAVE MANUAL PROFILE
 # ============================================================
 
 if save_profile:
@@ -475,8 +525,10 @@ if profile:
 
                 <div class="hjmi-profile-value">
                     {
-                        specialization_value
-                        or "Not specified"
+                        safe(
+                            specialization_value
+                            or "Not specified"
+                        )
                     }
                 </div>
 
@@ -501,8 +553,10 @@ if profile:
 
                 <div class="hjmi-profile-value">
                     {
-                        experience_value
-                        or "Not specified"
+                        safe(
+                            experience_value
+                            or "Not specified"
+                        )
                     }
                 </div>
 
@@ -573,7 +627,7 @@ if profile:
 
 
 # ============================================================
-# CV INTELLIGENCE PREVIEW
+# CV INTELLIGENCE
 # ============================================================
 
 st.divider()
@@ -582,34 +636,613 @@ st.markdown(
     "## CV Intelligence"
 )
 
+st.caption(
+    "Upload a text-based PDF CV. HJMI will analyze it locally "
+    "during this session and show you the detected information "
+    "before anything is added to your Career Profile."
+)
+
+
 info_box(
-    "CV Analysis — Next Step",
+    "Your CV stays under your control",
     (
-        "The next HJMI Career Match feature will allow you "
-        "to upload your CV. HJMI will extract career information "
-        "and skills from the CV, let you review the extracted "
-        "profile, and use the approved information for job matching."
+        "Uploading a CV does not automatically replace your Career "
+        "Profile. HJMI first shows the detected information. "
+        "You decide whether to apply it to your profile."
     ),
     "📄",
 )
+
+
+uploaded_cv = st.file_uploader(
+    "Upload CV",
+    type=["pdf"],
+    accept_multiple_files=False,
+    help=(
+        "PDF only. Text-based PDFs work best. "
+        "Scanned image-only CVs may not contain readable text."
+    ),
+)
+
+
+if uploaded_cv is not None:
+
+    file_size = (
+        len(
+            uploaded_cv.getvalue()
+        )
+        / 1024
+    )
+
+    file_col1, file_col2 = (
+        st.columns(2)
+    )
+
+
+    with file_col1:
+
+        st.metric(
+            "Selected CV",
+            uploaded_cv.name,
+        )
+
+
+    with file_col2:
+
+        st.metric(
+            "File Size",
+            f"{file_size:.1f} KB",
+        )
+
+
+    analyze_button = st.button(
+        "Analyze CV",
+        type="primary",
+        use_container_width=True,
+    )
+
+
+    if analyze_button:
+
+        with st.spinner(
+            "HJMI is analyzing your CV..."
+        ):
+
+            analysis = analyze_cv(
+                uploaded_cv
+            )
+
+
+        if analysis["success"]:
+
+            st.session_state[
+                "hjmi_cv_analysis"
+            ] = analysis
+
+            st.session_state[
+                "hjmi_cv_file_name"
+            ] = uploaded_cv.name
+
+            st.toast(
+                "CV analysis completed."
+            )
+
+        else:
+
+            st.session_state.pop(
+                "hjmi_cv_analysis",
+                None,
+            )
+
+            st.error(
+                analysis["message"]
+            )
+
+
+# ============================================================
+# CV ANALYSIS RESULTS
+# ============================================================
+
+cv_analysis = st.session_state.get(
+    "hjmi_cv_analysis"
+)
+
+
+if cv_analysis:
+
+    st.markdown(
+        "### CV Analysis Results"
+    )
+
+    st.caption(
+        "Review the detected information before applying it "
+        "to your Career Profile."
+    )
+
+
+    cv_col1, cv_col2 = st.columns(
+        2
+    )
+
+
+    with cv_col1:
+
+        st.html(
+            f"""
+            <div class="hjmi-cv-card">
+
+                <div class="hjmi-cv-label">
+                    DETECTED SPECIALIZATION
+                </div>
+
+                <div class="hjmi-cv-value">
+                    {
+                        safe(
+                            cv_analysis.get(
+                                "specialization"
+                            )
+                            or "Not detected"
+                        )
+                    }
+                </div>
+
+            </div>
+            """
+        )
+
+
+    with cv_col2:
+
+        st.html(
+            f"""
+            <div class="hjmi-cv-card">
+
+                <div class="hjmi-cv-label">
+                    DETECTED EXPERIENCE LEVEL
+                </div>
+
+                <div class="hjmi-cv-value">
+                    {
+                        safe(
+                            cv_analysis.get(
+                                "experience_level"
+                            )
+                            or "Not Specified"
+                        )
+                    }
+                </div>
+
+            </div>
+            """
+        )
+
+
+    pages = cv_analysis.get(
+        "pages",
+        0,
+    )
+
+    skills_detected = cv_analysis.get(
+        "skills",
+        [],
+    ) or []
+
+    roles_detected = cv_analysis.get(
+        "target_roles",
+        [],
+    ) or []
+
+
+    metric1, metric2, metric3 = (
+        st.columns(3)
+    )
+
+
+    with metric1:
+
+        st.metric(
+            "PDF Pages",
+            pages,
+        )
+
+
+    with metric2:
+
+        st.metric(
+            "Skills Detected",
+            len(
+                skills_detected
+            ),
+        )
+
+
+    with metric3:
+
+        st.metric(
+            "Role Signals",
+            len(
+                roles_detected
+            ),
+        )
+
+
+    # --------------------------------------------------------
+    # CONTACT INFORMATION
+    # --------------------------------------------------------
+
+    st.markdown(
+        "#### Detected Contact Information"
+    )
+
+
+    contact_email = (
+        cv_analysis.get(
+            "email",
+            "",
+        )
+        or "Not detected"
+    )
+
+    contact_phone = (
+        cv_analysis.get(
+            "phone",
+            "",
+        )
+        or "Not detected"
+    )
+
+    linkedin = (
+        cv_analysis.get(
+            "linkedin",
+            "",
+        )
+        or "Not detected"
+    )
+
+    github = (
+        cv_analysis.get(
+            "github",
+            "",
+        )
+        or "Not detected"
+    )
+
+
+    contact1, contact2 = st.columns(
+        2
+    )
+
+
+    with contact1:
+
+        st.write(
+            f"**Email:** {contact_email}"
+        )
+
+        st.write(
+            f"**Phone:** {contact_phone}"
+        )
+
+
+    with contact2:
+
+        st.write(
+            f"**LinkedIn:** {linkedin}"
+        )
+
+        st.write(
+            f"**GitHub:** {github}"
+        )
+
+
+    # --------------------------------------------------------
+    # SKILLS
+    # --------------------------------------------------------
+
+    st.markdown(
+        "#### Detected Skills"
+    )
+
+
+    if skills_detected:
+
+        st.write(
+            " • ".join(
+                skills_detected
+            )
+        )
+
+    else:
+
+        st.caption(
+            "No skills from the current HJMI skill catalog "
+            "were detected in this CV."
+        )
+
+
+    # --------------------------------------------------------
+    # ROLE SIGNALS
+    # --------------------------------------------------------
+
+    st.markdown(
+        "#### Detected Career / Role Signals"
+    )
+
+
+    if roles_detected:
+
+        st.write(
+            " • ".join(
+                roles_detected
+            )
+        )
+
+    else:
+
+        st.caption(
+            "No specific target-role signals were detected."
+        )
+
+
+    # --------------------------------------------------------
+    # REVIEW / EDIT BEFORE APPLYING
+    # --------------------------------------------------------
+
+    st.markdown(
+        "### Review Before Applying"
+    )
+
+    st.caption(
+        "You can edit the detected information below. "
+        "Only the values you approve here will be added "
+        "to your Career Profile."
+    )
+
+
+    detected_specialization = (
+        cv_analysis.get(
+            "specialization",
+            "",
+        )
+        or specialization_value
+    )
+
+
+    detected_experience = (
+        cv_analysis.get(
+            "experience_level",
+            "Not Specified",
+        )
+        or "Not Specified"
+    )
+
+
+    if (
+        detected_experience
+        not in experience_options
+    ):
+
+        detected_experience = (
+            "Not Specified"
+        )
+
+
+    detected_experience_index = (
+        experience_options.index(
+            detected_experience
+        )
+    )
+
+
+    with st.form(
+        "hjmi_cv_review_form"
+    ):
+
+        reviewed_specialization = (
+            st.text_input(
+                "Specialization",
+                value=(
+                    detected_specialization
+                ),
+            )
+        )
+
+
+        reviewed_roles = (
+            st.text_area(
+                "Target Roles / Role Signals",
+                value=", ".join(
+                    roles_detected
+                ),
+                height=90,
+                help=(
+                    "You can remove, add or edit roles "
+                    "before applying them."
+                ),
+            )
+        )
+
+
+        reviewed_skills = (
+            st.text_area(
+                "Skills Detected from CV",
+                value=", ".join(
+                    skills_detected
+                ),
+                height=140,
+                help=(
+                    "Review the detected skills carefully. "
+                    "You can remove incorrect skills or add "
+                    "skills that HJMI did not detect."
+                ),
+            )
+        )
+
+
+        reviewed_experience = (
+            st.selectbox(
+                "Experience Level",
+                options=experience_options,
+                index=(
+                    detected_experience_index
+                ),
+            )
+        )
+
+
+        st.caption(
+            "Your existing preferred UAE locations will not "
+            "be changed by CV analysis."
+        )
+
+
+        apply_cv = (
+            st.form_submit_button(
+                "Apply CV Data to Career Profile",
+                type="primary",
+                use_container_width=True,
+            )
+        )
+
+
+    # --------------------------------------------------------
+    # APPLY APPROVED CV DATA
+    # --------------------------------------------------------
+
+    if apply_cv:
+
+        approved_roles = [
+            value.strip()
+            for value in
+            reviewed_roles.split(",")
+            if value.strip()
+        ]
+
+
+        approved_skills = [
+            value.strip()
+            for value in
+            reviewed_skills.split(",")
+            if value.strip()
+        ]
+
+
+        merged_roles = merge_unique(
+            target_roles_value,
+            approved_roles,
+        )
+
+
+        merged_skills = merge_unique(
+            skills_value,
+            approved_skills,
+        )
+
+
+        final_specialization = (
+            reviewed_specialization.strip()
+            or specialization_value
+        )
+
+
+        final_experience = (
+            reviewed_experience
+        )
+
+
+        if (
+            final_experience
+            == "Not Specified"
+            and experience_value
+        ):
+
+            final_experience = (
+                experience_value
+            )
+
+
+        result = save_career_profile(
+            specialization=(
+                final_specialization
+            ),
+            target_roles=merged_roles,
+            skills=merged_skills,
+            experience_level=(
+                final_experience
+            ),
+            preferred_locations=(
+                locations_value
+            ),
+        )
+
+
+        if result["success"]:
+
+            st.session_state.pop(
+                "hjmi_cv_analysis",
+                None,
+            )
+
+            st.session_state.pop(
+                "hjmi_cv_file_name",
+                None,
+            )
+
+            st.toast(
+                "Approved CV information added to your Career Profile."
+            )
+
+            st.rerun()
+
+        else:
+
+            st.error(
+                result["message"]
+            )
+
+
+    # --------------------------------------------------------
+    # RAW TEXT PREVIEW
+    # --------------------------------------------------------
+
+    with st.expander(
+        "View extracted CV text"
+    ):
+
+        st.caption(
+            "This is the text HJMI could read from the PDF. "
+            "It is shown for transparency and troubleshooting."
+        )
+
+        st.text_area(
+            "Extracted CV Text",
+            value=cv_analysis.get(
+                "text",
+                "",
+            ),
+            height=300,
+            disabled=True,
+        )
 
 
 # ============================================================
 # MATCHING PREVIEW
 # ============================================================
 
+st.divider()
+
 st.markdown(
     "## Personalized Opportunities"
 )
 
 info_box(
-    "Job Matching — Coming Next",
+    "Job Matching — Next Stage",
     (
-        "Once your Career Profile is ready, HJMI will identify "
-        "jobs that share your skills, target roles, specialization, "
-        "experience level or preferred locations. Partial matches "
-        "will also be considered instead of requiring every skill "
-        "to match."
+        "HJMI will use the Career Profile you approved — including "
+        "manual information and CV-derived skills — to compare your "
+        "profile with UAE technology opportunities. Partial matches "
+        "will be included, so a job can still be relevant even when "
+        "only some of your skills overlap."
     ),
     "◎",
 )
