@@ -1,5 +1,5 @@
 # ============================================================
-# HJMI 2.1 — SMART JOB EXPLORER
+# HJMI 2.2 — SMART JOB EXPLORER
 # Hasan Job Market Intelligence
 # ============================================================
 
@@ -38,6 +38,11 @@ from services.saved_jobs_service import (
     save_job,
     remove_saved_job,
     get_saved_jobs,
+)
+
+from services.application_service import (
+    add_application,
+    get_applications,
 )
 
 
@@ -451,22 +456,46 @@ if active_filters:
 
 
 # ============================================================
-# SAVED JOB STATE
+# USER STATE
 # ============================================================
 
 authenticated = is_authenticated()
 
 saved_job_ids = set()
 
+tracked_job_ids = set()
+
+
 if authenticated:
 
-    saved_jobs = get_saved_jobs()
+    try:
 
-    saved_job_ids = {
-        str(saved_job.get("job_id", ""))
-        for saved_job in saved_jobs
-        if saved_job.get("job_id")
-    }
+        saved_jobs = get_saved_jobs()
+
+        saved_job_ids = {
+            str(saved_job.get("job_id", ""))
+            for saved_job in saved_jobs
+            if saved_job.get("job_id")
+        }
+
+    except Exception:
+
+        saved_job_ids = set()
+
+
+    try:
+
+        applications = get_applications()
+
+        tracked_job_ids = {
+            str(application.get("job_id", ""))
+            for application in applications
+            if application.get("job_id")
+        }
+
+    except Exception:
+
+        tracked_job_ids = set()
 
 
 # ============================================================
@@ -488,6 +517,7 @@ else:
 
     # Prevent extremely long pages.
     # Users can increase the number displayed.
+
     display_options = [
         10,
         25,
@@ -498,6 +528,7 @@ else:
     max_available = len(
         filtered_jobs
     )
+
 
     if max_available <= 10:
 
@@ -523,6 +554,7 @@ else:
             ),
         )
 
+
     jobs_to_display = (
         filtered_jobs
         .head(display_limit)
@@ -540,6 +572,11 @@ else:
             show_description=False,
         )
 
+
+        # ----------------------------------------------------
+        # JOB DATA
+        # ----------------------------------------------------
+
         job_url = str(
             job.get(
                 "job_url",
@@ -547,6 +584,7 @@ else:
             )
             or ""
         ).strip()
+
 
         job_title = str(
             job.get(
@@ -559,6 +597,7 @@ else:
             or "Job opportunity"
         ).strip()
 
+
         company_name = str(
             job.get(
                 "company_display",
@@ -569,6 +608,7 @@ else:
             )
             or ""
         ).strip()
+
 
         job_location = str(
             job.get(
@@ -594,44 +634,111 @@ else:
 
 
         # ----------------------------------------------------
-        # SAVE JOB ACTION
+        # NOT AUTHENTICATED
         # ----------------------------------------------------
 
         if not authenticated:
 
             st.caption(
-                "🔐 Sign in to My HJMI to save this opportunity."
+                "🔐 Sign in to My HJMI to save and "
+                "track this opportunity."
             )
 
-        elif not job_identifier:
+            st.markdown("---")
+
+            continue
+
+
+        # ----------------------------------------------------
+        # INVALID IDENTIFIER
+        # ----------------------------------------------------
+
+        if not job_identifier:
 
             st.caption(
-                "Saving is unavailable for this opportunity "
-                "because no source URL is available."
+                "Saving and application tracking are unavailable "
+                "for this opportunity because no source URL "
+                "is available."
             )
 
-        elif job_identifier in saved_job_ids:
+            st.markdown("---")
 
-            action_col_1, action_col_2 = st.columns(
-                [3, 1]
-            )
+            continue
 
-            with action_col_1:
 
-                st.success(
-                    "✓ Saved to My HJMI"
+        # ----------------------------------------------------
+        # ACTION LAYOUT
+        # ----------------------------------------------------
+
+        save_column, application_column = st.columns(
+            2
+        )
+
+
+        # ====================================================
+        # SAVE JOB
+        # ====================================================
+
+        with save_column:
+
+            if job_identifier in saved_job_ids:
+
+                saved_col_1, saved_col_2 = st.columns(
+                    [3, 1]
                 )
 
-            with action_col_2:
+                with saved_col_1:
+
+                    st.success(
+                        "✓ Saved to My HJMI"
+                    )
+
+                with saved_col_2:
+
+                    if st.button(
+                        "Remove",
+                        key=(
+                            f"remove_job_"
+                            f"{row_index}"
+                        ),
+                        use_container_width=True,
+                    ):
+
+                        result = remove_saved_job(
+                            job_identifier
+                        )
+
+                        if result["success"]:
+
+                            st.toast(
+                                result["message"]
+                            )
+
+                            st.rerun()
+
+                        else:
+
+                            st.error(
+                                result["message"]
+                            )
+
+            else:
 
                 if st.button(
-                    "Remove",
-                    key=f"remove_job_{row_index}",
+                    "♡ Save Job",
+                    key=(
+                        f"save_job_"
+                        f"{row_index}"
+                    ),
                     use_container_width=True,
                 ):
 
-                    result = remove_saved_job(
-                        job_identifier
+                    result = save_job(
+                        job_id=job_identifier,
+                        job_title=job_title,
+                        company=company_name,
+                        location=job_location,
+                        job_url=job_url,
                     )
 
                     if result["success"]:
@@ -648,35 +755,54 @@ else:
                             result["message"]
                         )
 
-        else:
 
-            if st.button(
-                "♡ Save Job",
-                key=f"save_job_{row_index}",
-                use_container_width=True,
-            ):
+        # ====================================================
+        # APPLICATION TRACKER
+        # ====================================================
 
-                result = save_job(
-                    job_id=job_identifier,
-                    job_title=job_title,
-                    company=company_name,
-                    location=job_location,
-                    job_url=job_url,
+        with application_column:
+
+            if job_identifier in tracked_job_ids:
+
+                st.success(
+                    "✓ Application Tracked"
                 )
 
-                if result["success"]:
+            else:
 
-                    st.toast(
-                        result["message"]
+                if st.button(
+                    "Track Application",
+                    key=(
+                        f"track_application_"
+                        f"{row_index}"
+                    ),
+                    use_container_width=True,
+                    type="primary",
+                ):
+
+                    result = add_application(
+                        job_id=job_identifier,
+                        job_title=job_title,
+                        company=company_name,
+                        location=job_location,
+                        job_url=job_url,
+                        status="Applied",
                     )
 
-                    st.rerun()
+                    if result["success"]:
 
-                else:
+                        st.toast(
+                            result["message"]
+                        )
 
-                    st.error(
-                        result["message"]
-                    )
+                        st.rerun()
+
+                    else:
+
+                        st.error(
+                            result["message"]
+                        )
+
 
         st.markdown("---")
 
@@ -727,16 +853,17 @@ info_box(
 
 
 # ============================================================
-# APPLICATION NOTE
+# APPLICATION TRACKING NOTE
 # ============================================================
 
 info_box(
-    "Applying for opportunities",
+    "Applying and tracking opportunities",
     (
         "The View Opportunity button opens the external source "
-        "listing. Signed-in users can save opportunities to "
-        "My HJMI for later review. Application tracking will "
-        "be connected to My HJMI separately."
+        "listing. Signed-in users can save opportunities for later "
+        "or add jobs they have applied for to the HJMI Application "
+        "Tracker. Tracking a job does not submit an application "
+        "to the employer."
     ),
     "↗",
 )
