@@ -4,6 +4,12 @@ Automated UAE Technology Jobs Data Source
 
 Collects UAE technology job listings from the Jooble UAE REST API,
 normalizes the results, removes duplicates, and preserves historical data.
+
+The pipeline also tracks:
+- First time a job was seen
+- Last time a job was seen
+- Whether a job is currently active
+- Whether a job is new in the latest collection
 """
 
 from pathlib import Path
@@ -28,9 +34,6 @@ API_BASE_URL = "https://ae.jooble.org/api"
 
 # Keep API usage low:
 # 3 searches = 3 API requests per pipeline run.
-#
-# These broad searches cover a useful range of technology roles
-# while avoiding excessive use of the 500-request lifetime quota.
 SEARCHES = [
     "software engineer developer",
     "data analyst data scientist data engineer",
@@ -49,14 +52,18 @@ REQUEST_TIMEOUT = 30
 # ============================================================
 
 def clean_value(value):
-    """
-    Safely convert API values into clean strings.
-    """
+    """Safely convert API values into clean strings."""
 
     if value is None:
         return ""
 
     return str(value).strip()
+
+
+def utc_now():
+    """Return the current UTC timestamp."""
+
+    return datetime.now(timezone.utc).isoformat()
 
 
 def build_source_id(job):
@@ -85,9 +92,7 @@ def build_source_id(job):
 # ============================================================
 
 def fetch_jobs(keywords):
-    """
-    Fetch one page of UAE job listings from Jooble.
-    """
+    """Fetch one page of UAE job listings from Jooble."""
 
     if not JOOBLE_API_KEY:
         raise RuntimeError(
@@ -178,10 +183,8 @@ def fetch_jobs(keywords):
 # NORMALIZE JOOBLE RECORDS
 # ============================================================
 
-def normalize_job(job):
-    """
-    Convert one Jooble record into the standard HJMI schema.
-    """
+def normalize_job(job, collection_time):
+    """Convert one Jooble record into the standard HJMI schema."""
 
     return {
         "source_id": build_source_id(job),
@@ -194,7 +197,7 @@ def normalize_job(job):
         "publication_date": clean_value(job.get("updated")),
         "job_url": clean_value(job.get("link")),
         "source": clean_value(job.get("source")) or "Jooble",
-        "fetched_at": datetime.now(timezone.utc).isoformat(),
+        "fetched_at": collection_time,
     }
 
 
@@ -203,22 +206,26 @@ def normalize_job(job):
 # ============================================================
 
 def collect_current_jobs():
-    """
-    Run the three configured searches and return one DataFrame.
-    """
+    """Run the configured searches and return current jobs."""
 
     collected_jobs = []
 
+    collection_time = utc_now()
+
     for keywords in SEARCHES:
+
         jobs = fetch_jobs(keywords)
 
         for job in jobs:
+
             if not isinstance(job, dict):
                 continue
 
-            normalized = normalize_job(job)
+            normalized = normalize_job(
+                job,
+                collection_time,
+            )
 
-            # A record without a title is not useful for HJMI.
             if not normalized["job_title"]:
                 continue
 
@@ -235,18 +242,17 @@ def collect_current_jobs():
     print("======================================")
     print(" CURRENT COLLECTION")
     print("======================================")
+
     print(
         f"Records before deduplication: "
         f"{len(current_df):,}"
     )
 
-    # First deduplicate using Jooble's ID.
     current_df = current_df.drop_duplicates(
         subset=["source_id"],
         keep="last",
     )
 
-    # Additional protection for overlapping searches.
     current_df = current_df.drop_duplicates(
         subset=[
             "job_title",
@@ -267,19 +273,39 @@ def collect_current_jobs():
 
 
 # ============================================================
-# HISTORICAL DATA
+# HISTORICAL DATA + JOB STATUS TRACKING
 # ============================================================
 
 def merge_historical_data(current_df):
     """
-    Merge newly fetched records with previous HJMI records.
+    Merge current jobs with historical HJMI records.
 
-    Existing jobs are retained so the project can build
-    historical job-market data over time.
+    Jobs found in the latest collection:
+        is_active = True
+
+    Historical jobs not found in the latest collection:
+        is_active = False
+
+    Existing records are preserved for long-term market analysis.
     """
 
+    now = utc_now()
+
+    current_df = current_df.copy()
+
+    current_df["first_seen"] = now
+    current_df["last_seen"] = now
+    current_df["is_active"] = True
+    current_df["status"] = "Active"
+    current_df["is_new"] = True
+
     if not RAW_FILE.exists():
-        return current_df
+
+        print()
+        print("No historical dataset found.")
+        print("All current jobs will be marked as new.")
+
+        return current_df.reset_index(drop=True)
 
     try:
         old_df = pd.read_csv(
@@ -288,47 +314,248 @@ def merge_historical_data(current_df):
         )
 
     except Exception as error:
+
         print()
         print(
             "Previous dataset could not be loaded. "
             f"Continuing with current data only: {error}"
         )
-        return current_df
+
+        return current_df.reset_index(drop=True)
 
     if old_df.empty:
-        return current_df
+        return current_df.reset_index(drop=True)
 
     print()
     print(
         f"Previously stored records: {len(old_df):,}"
     )
 
+    # --------------------------------------------------------
+    # Support datasets created before status tracking existed
+    # --------------------------------------------------------
+
+    if "first_seen" not in old_df.columns:
+
+        if "fetched_at" in old_df.columns:
+            old_df["first_seen"] = old_df["fetched_at"]
+        else:
+            old_df["first_seen"] = ""
+
+    if "last_seen" not in old_df.columns:
+
+        if "fetched_at" in old_df.columns:
+            old_df["last_seen"] = old_df["fetched_at"]
+        else:
+            old_df["last_seen"] = ""
+
+    if "is_active" not in old_df.columns:
+        old_df["is_active"] = False
+
+    if "status" not in old_df.columns:
+        old_df["status"] = "Inactive"
+
+    if "is_new" not in old_df.columns:
+        old_df["is_new"] = False
+
+    # --------------------------------------------------------
+    # Create lookup using source IDs
+    # --------------------------------------------------------
+
+    old_df["source_id"] = (
+        old_df["source_id"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+
+    current_df["source_id"] = (
+        current_df["source_id"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
+    )
+
+    old_lookup = (
+        old_df
+        .drop_duplicates(
+            subset=["source_id"],
+            keep="last",
+        )
+        .set_index("source_id")
+    )
+
+    current_ids = set(
+        current_df["source_id"]
+        .dropna()
+        .astype(str)
+        .str.strip()
+    )
+
+    current_ids.discard("")
+
+    old_ids = set(
+        old_df["source_id"]
+        .dropna()
+        .astype(str)
+        .str.strip()
+    )
+
+    old_ids.discard("")
+
+    # --------------------------------------------------------
+    # Preserve original first_seen for known jobs
+    # --------------------------------------------------------
+
+    for index, row in current_df.iterrows():
+
+        source_id = row["source_id"]
+
+        if source_id and source_id in old_lookup.index:
+
+            old_record = old_lookup.loc[source_id]
+
+            previous_first_seen = clean_value(
+                old_record.get("first_seen", "")
+            )
+
+            if previous_first_seen:
+                current_df.at[
+                    index,
+                    "first_seen"
+                ] = previous_first_seen
+
+            current_df.at[
+                index,
+                "is_new"
+            ] = False
+
+    # --------------------------------------------------------
+    # Mark old jobs inactive before merging
+    # --------------------------------------------------------
+
+    old_df["is_active"] = False
+    old_df["status"] = "Inactive"
+    old_df["is_new"] = False
+
+    # --------------------------------------------------------
+    # Remove old versions of jobs that appeared again
+    # --------------------------------------------------------
+
+    historical_only = old_df[
+        ~old_df["source_id"].isin(current_ids)
+    ].copy()
+
+    # --------------------------------------------------------
+    # Merge historical and current records
+    # --------------------------------------------------------
+
     combined_df = pd.concat(
-        [old_df, current_df],
+        [
+            historical_only,
+            current_df,
+        ],
         ignore_index=True,
         sort=False,
     )
 
+    # --------------------------------------------------------
+    # Final duplicate protection
+    # --------------------------------------------------------
+
     if "source_id" in combined_df.columns:
-        combined_df = combined_df.drop_duplicates(
+
+        with_id = combined_df[
+            combined_df["source_id"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .ne("")
+        ].drop_duplicates(
             subset=["source_id"],
             keep="last",
         )
 
-    required_dedupe_columns = [
-        "job_title",
-        "company",
-        "location",
-    ]
-
-    if all(
-        column in combined_df.columns
-        for column in required_dedupe_columns
-    ):
-        combined_df = combined_df.drop_duplicates(
-            subset=required_dedupe_columns,
+        without_id = combined_df[
+            combined_df["source_id"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .eq("")
+        ].drop_duplicates(
+            subset=[
+                "job_title",
+                "company",
+                "location",
+            ],
             keep="last",
         )
+
+        combined_df = pd.concat(
+            [
+                with_id,
+                without_id,
+            ],
+            ignore_index=True,
+        )
+
+    else:
+
+        combined_df = combined_df.drop_duplicates(
+            subset=[
+                "job_title",
+                "company",
+                "location",
+            ],
+            keep="last",
+        )
+
+    # --------------------------------------------------------
+    # Statistics
+    # --------------------------------------------------------
+
+    active_count = int(
+        combined_df["is_active"]
+        .fillna(False)
+        .astype(bool)
+        .sum()
+    )
+
+    new_count = int(
+        combined_df["is_new"]
+        .fillna(False)
+        .astype(bool)
+        .sum()
+    )
+
+    historical_count = len(combined_df)
+
+    inactive_count = (
+        historical_count - active_count
+    )
+
+    print()
+    print("======================================")
+    print(" JOB STATUS TRACKING")
+    print("======================================")
+
+    print(
+        f"Active jobs: {active_count:,}"
+    )
+
+    print(
+        f"New jobs this collection: {new_count:,}"
+    )
+
+    print(
+        f"Inactive historical jobs: "
+        f"{inactive_count:,}"
+    )
+
+    print(
+        f"Total jobs collected historically: "
+        f"{historical_count:,}"
+    )
 
     return combined_df.reset_index(drop=True)
 
@@ -338,17 +565,15 @@ def merge_historical_data(current_df):
 # ============================================================
 
 def save_dataset(dataframe):
-    """
-    Save the raw historical HJMI dataset.
-    """
+    """Save the raw historical HJMI dataset."""
 
     if dataframe.empty:
         raise RuntimeError(
             "HJMI refused to save an empty dataset."
         )
 
-    # Convert publication dates safely for correct sorting.
     if "publication_date" in dataframe.columns:
+
         sort_dates = pd.to_datetime(
             dataframe["publication_date"],
             errors="coerce",
@@ -389,9 +614,7 @@ def save_dataset(dataframe):
 # ============================================================
 
 def download_dataset():
-    """
-    Fetch, normalize, merge, and save UAE technology jobs.
-    """
+    """Fetch, normalize, track, merge and save UAE tech jobs."""
 
     DATA_DIR.mkdir(
         parents=True,
@@ -419,22 +642,50 @@ def download_dataset():
         final_df
     )
 
+    active_count = int(
+        final_df["is_active"]
+        .fillna(False)
+        .astype(bool)
+        .sum()
+    )
+
+    new_count = int(
+        final_df["is_new"]
+        .fillna(False)
+        .astype(bool)
+        .sum()
+    )
+
     print()
     print("======================================")
     print(" HJMI DATA COLLECTION COMPLETE")
     print("======================================")
+
     print(
-        f"Current unique jobs collected: "
+        f"Current unique jobs received: "
         f"{len(current_df):,}"
     )
+
+    print(
+        f"Active jobs: "
+        f"{active_count:,}"
+    )
+
+    print(
+        f"New jobs: "
+        f"{new_count:,}"
+    )
+
     print(
         f"Total historical records stored: "
         f"{len(final_df):,}"
     )
+
     print(
         f"API requests used this run: "
         f"{len(SEARCHES)}"
     )
+
     print(
         f"Saved to: {RAW_FILE}"
     )
@@ -461,6 +712,7 @@ def load_dataset():
 # ============================================================
 
 if __name__ == "__main__":
+
     data = download_dataset()
 
     print()
@@ -478,6 +730,10 @@ if __name__ == "__main__":
         "location",
         "salary",
         "publication_date",
+        "first_seen",
+        "last_seen",
+        "status",
+        "is_new",
         "source",
     ]
 
