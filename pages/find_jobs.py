@@ -1,5 +1,5 @@
 # ============================================================
-# HJMI 2.0 — SMART JOB EXPLORER
+# HJMI 2.1 — SMART JOB EXPLORER
 # Hasan Job Market Intelligence
 # ============================================================
 
@@ -27,6 +27,17 @@ from services.data_service import (
     get_historical_jobs,
     get_filter_options,
     search_jobs,
+    get_market_metrics,
+)
+
+from services.auth_service import (
+    is_authenticated,
+)
+
+from services.saved_jobs_service import (
+    save_job,
+    remove_saved_job,
+    get_saved_jobs,
 )
 
 
@@ -128,8 +139,6 @@ page_header(
 # ============================================================
 # DATA STATUS
 # ============================================================
-
-from services.data_service import get_market_metrics
 
 metrics = get_market_metrics(df)
 
@@ -442,6 +451,25 @@ if active_filters:
 
 
 # ============================================================
+# SAVED JOB STATE
+# ============================================================
+
+authenticated = is_authenticated()
+
+saved_job_ids = set()
+
+if authenticated:
+
+    saved_jobs = get_saved_jobs()
+
+    saved_job_ids = {
+        str(saved_job.get("job_id", ""))
+        for saved_job in saved_jobs
+        if saved_job.get("job_id")
+    }
+
+
+# ============================================================
 # RESULTS
 # ============================================================
 
@@ -501,14 +529,156 @@ else:
     )
 
 
-    for _, job in (
-        jobs_to_display.iterrows()
-    ):
+    # ========================================================
+    # JOB CARDS
+    # ========================================================
+
+    for row_index, job in jobs_to_display.iterrows():
 
         job_card(
             job,
             show_description=False,
         )
+
+        job_url = str(
+            job.get(
+                "job_url",
+                "",
+            )
+            or ""
+        ).strip()
+
+        job_title = str(
+            job.get(
+                "job_title_display",
+                job.get(
+                    "job_title",
+                    "Job opportunity",
+                ),
+            )
+            or "Job opportunity"
+        ).strip()
+
+        company_name = str(
+            job.get(
+                "company_display",
+                job.get(
+                    "company",
+                    "",
+                ),
+            )
+            or ""
+        ).strip()
+
+        job_location = str(
+            job.get(
+                "location_display",
+                job.get(
+                    "location",
+                    "",
+                ),
+            )
+            or ""
+        ).strip()
+
+
+        # ----------------------------------------------------
+        # JOB IDENTIFIER
+        # ----------------------------------------------------
+
+        # HJMI currently uses the source job URL as the stable
+        # identifier because the central dataset does not
+        # expose a separate job_id column.
+
+        job_identifier = job_url
+
+
+        # ----------------------------------------------------
+        # SAVE JOB ACTION
+        # ----------------------------------------------------
+
+        if not authenticated:
+
+            st.caption(
+                "🔐 Sign in to My HJMI to save this opportunity."
+            )
+
+        elif not job_identifier:
+
+            st.caption(
+                "Saving is unavailable for this opportunity "
+                "because no source URL is available."
+            )
+
+        elif job_identifier in saved_job_ids:
+
+            action_col_1, action_col_2 = st.columns(
+                [3, 1]
+            )
+
+            with action_col_1:
+
+                st.success(
+                    "✓ Saved to My HJMI"
+                )
+
+            with action_col_2:
+
+                if st.button(
+                    "Remove",
+                    key=f"remove_job_{row_index}",
+                    use_container_width=True,
+                ):
+
+                    result = remove_saved_job(
+                        job_identifier
+                    )
+
+                    if result["success"]:
+
+                        st.toast(
+                            result["message"]
+                        )
+
+                        st.rerun()
+
+                    else:
+
+                        st.error(
+                            result["message"]
+                        )
+
+        else:
+
+            if st.button(
+                "♡ Save Job",
+                key=f"save_job_{row_index}",
+                use_container_width=True,
+            ):
+
+                result = save_job(
+                    job_id=job_identifier,
+                    job_title=job_title,
+                    company=company_name,
+                    location=job_location,
+                    job_url=job_url,
+                )
+
+                if result["success"]:
+
+                    st.toast(
+                        result["message"]
+                    )
+
+                    st.rerun()
+
+                else:
+
+                    st.error(
+                        result["message"]
+                    )
+
+        st.markdown("---")
 
 
     # --------------------------------------------------------
@@ -564,9 +734,9 @@ info_box(
     "Applying for opportunities",
     (
         "The View Opportunity button opens the external source "
-        "listing. HJMI currently helps users discover and analyze "
-        "opportunities; direct application tracking will be added "
-        "through the future My HJMI platform."
+        "listing. Signed-in users can save opportunities to "
+        "My HJMI for later review. Application tracking will "
+        "be connected to My HJMI separately."
     ),
     "↗",
 )
