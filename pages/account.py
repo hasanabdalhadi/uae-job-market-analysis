@@ -59,6 +59,15 @@ from services.matching_service import (
     get_match_summary,
 )
 
+from services.job_alerts_service import (
+    sync_smart_job_alerts,
+    get_job_alerts,
+    get_unread_job_alerts_count,
+    mark_job_alert_read,
+    mark_all_job_alerts_read,
+    remove_job_alert,
+)
+
 
 # ============================================================
 # PAGE CONFIG
@@ -432,6 +441,30 @@ if is_authenticated():
 
 
     # ========================================================
+    # SMART JOB ALERTS
+    # ========================================================
+
+    if matching_ready and recommendations is not None:
+        try:
+            sync_smart_job_alerts(recommendations)
+        except Exception:
+            pass
+
+    try:
+        job_alerts = get_job_alerts()
+    except Exception:
+        job_alerts = []
+
+    try:
+        unread_alerts_count = get_unread_job_alerts_count()
+    except Exception:
+        unread_alerts_count = sum(
+            1 for alert in job_alerts
+            if not alert.get("is_read", False)
+        )
+
+
+    # ========================================================
     # PAGE HEADER
     # ========================================================
 
@@ -478,8 +511,8 @@ if is_authenticated():
     # ACCOUNT METRICS
     # ========================================================
 
-    col1, col2, col3, col4 = st.columns(
-        4
+    col1, col2, col3, col4, col5 = st.columns(
+        5
     )
 
 
@@ -522,6 +555,18 @@ if is_authenticated():
     with col4:
 
         st.metric(
+            "Alerts",
+            unread_alerts_count,
+            help=(
+                "Unread Smart Job Alerts for newly discovered "
+                "matching opportunities."
+            ),
+        )
+
+
+    with col5:
+
+        st.metric(
             "Profile",
             f"{profile_completion}%",
             help=(
@@ -536,11 +581,13 @@ if is_authenticated():
 
     (
         recommended_tab,
+        alerts_tab,
         saved_tab,
         applications_tab,
     ) = st.tabs(
         [
             "◎ Recommended for You",
+            f"🔔 Job Alerts ({unread_alerts_count})",
             "♡ Saved Jobs",
             "◉ Application Tracker",
         ]
@@ -998,7 +1045,6 @@ if is_authenticated():
                             ),
                             use_container_width=True,
                         ):
-
                             result = save_job(
                                 job_id=job_identifier,
                                 job_title=job_title,
@@ -1155,6 +1201,152 @@ if is_authenticated():
                         f"current profile matches."
                     )
                 )
+
+
+    # ========================================================
+    # SMART JOB ALERTS
+    # ========================================================
+
+    with alerts_tab:
+
+        st.html(
+            """
+            <div class="hjmi-section-heading">
+                Smart Job Alerts
+            </div>
+
+            <div class="hjmi-section-subheading">
+                Newly discovered HJMI opportunities that match
+                signals in your Career Profile.
+            </div>
+            """
+        )
+
+        st.caption(
+            "Alerts use HJMI discovery time and Career Profile "
+            "overlap. They do not predict hiring or acceptance."
+        )
+
+        if unread_alerts_count > 0:
+            if st.button(
+                "Mark All as Read",
+                key="mark_all_job_alerts_read",
+                use_container_width=True,
+            ):
+                if mark_all_job_alerts_read():
+                    st.toast("All job alerts marked as read.")
+                    st.rerun()
+                else:
+                    st.error("HJMI could not update your alerts.")
+
+        if not job_alerts:
+
+            st.html(
+                """
+                <div class="hjmi-empty">
+                    <div class="hjmi-empty-title">
+                        No new job alerts yet
+                    </div>
+                    <div class="hjmi-empty-text">
+                        Your alert baseline is active. Future newly
+                        discovered opportunities matching your Career
+                        Profile can appear here.
+                    </div>
+                </div>
+                """
+            )
+
+        else:
+
+            for index, alert in enumerate(job_alerts):
+
+                alert_id = alert.get("id")
+                job_title = alert.get("job_title", "") or "Untitled Opportunity"
+                company = alert.get("company", "") or "Company not specified"
+                location = alert.get("location", "") or "Location not specified"
+                job_url = alert.get("job_url", "") or ""
+                match_score = alert.get("match_score", 0) or 0
+                match_label = alert.get("match_label", "") or "Profile Match"
+                matched_skills = list_value(alert.get("matched_skills", []))
+                match_reasons = list_value(alert.get("match_reasons", []))
+                is_read = bool(alert.get("is_read", False))
+
+                reasons_text = " • ".join(
+                    str(reason) for reason in match_reasons
+                ) or "Profile signals matched this opportunity."
+
+                skills_html = render_match_skills(matched_skills)
+                read_label = "Read" if is_read else "New Alert"
+
+                st.html(
+                    f"""
+                    <div class="hjmi-job-card">
+                        <div class="hjmi-job-title">{safe(job_title)}</div>
+                        <div class="hjmi-job-company">{safe(company)}</div>
+                        <div class="hjmi-job-location">📍 {safe(location)}</div>
+                        <div>
+                            <span class="hjmi-match-badge">{safe(read_label)}</span>
+                            <span class="hjmi-match-badge">{safe(match_label)}</span>
+                            <span class="hjmi-match-score">HJMI Match {safe(match_score)}%</span>
+                        </div>
+                        <div class="hjmi-match-reason">
+                            Why this matched: {safe(reasons_text)}
+                        </div>
+                        {skills_html}
+                    </div>
+                    """
+                )
+
+                alert_col1, alert_col2, alert_col3 = st.columns([2, 1, 1])
+
+                with alert_col1:
+                    if job_url:
+                        st.link_button(
+                            "View Job",
+                            job_url,
+                            use_container_width=True,
+                        )
+                    else:
+                        st.button(
+                            "Job Link Unavailable",
+                            key=f"alert_no_link_{alert_id}_{index}",
+                            disabled=True,
+                            use_container_width=True,
+                        )
+
+                with alert_col2:
+                    if is_read:
+                        st.button(
+                            "✓ Read",
+                            key=f"alert_read_{alert_id}_{index}",
+                            disabled=True,
+                            use_container_width=True,
+                        )
+                    elif st.button(
+                        "Mark Read",
+                        key=f"mark_alert_read_{alert_id}_{index}",
+                        use_container_width=True,
+                    ):
+                        if mark_job_alert_read(alert_id):
+                            st.toast("Job alert marked as read.")
+                            st.rerun()
+                        else:
+                            st.error("HJMI could not update this alert.")
+
+                with alert_col3:
+                    if st.button(
+                        "Remove",
+                        key=f"remove_alert_{alert_id}_{index}",
+                        use_container_width=True,
+                        type="secondary",
+                    ):
+                        if remove_job_alert(alert_id):
+                            st.toast("Job alert removed.")
+                            st.rerun()
+                        else:
+                            st.error("HJMI could not remove this alert.")
+
+                st.divider()
 
 
     # ========================================================
