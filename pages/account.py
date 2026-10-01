@@ -1,7 +1,9 @@
 # ============================================================
-# HJMI — ACCOUNT
-# Sign In • Create Account • Saved Jobs • Application Tracker
+# HJMI — MY HJMI
+# Account • Recommended Jobs • Saved Jobs • Application Tracker
 # ============================================================
+
+import html
 
 import streamlit as st
 
@@ -25,17 +27,36 @@ from services.auth_service import (
 )
 
 from services.saved_jobs_service import (
+    save_job,
     get_saved_jobs,
     get_saved_jobs_count,
     remove_saved_job,
+    is_job_saved,
 )
 
 from services.application_service import (
+    add_application,
     get_applications,
     get_applications_count,
     update_application_status,
     update_application_notes,
     remove_application,
+    is_application_tracked,
+)
+
+from services.career_profile_service import (
+    get_career_profile,
+    get_profile_completion,
+    profile_ready_for_matching,
+)
+
+from services.data_service import (
+    load_jobs,
+)
+
+from services.matching_service import (
+    get_recommended_jobs,
+    get_match_summary,
 )
 
 
@@ -140,6 +161,54 @@ st.html(
         font-size: 11px;
     }
 
+    .hjmi-match-badge {
+        display: inline-block;
+        padding: 6px 10px;
+        margin-top: 12px;
+        margin-right: 6px;
+        border-radius: 20px;
+        background: rgba(216, 173, 87, 0.10);
+        border: 1px solid rgba(216, 173, 87, 0.24);
+        color: #d8ad57;
+        font-size: 11px;
+        font-weight: 800;
+    }
+
+    .hjmi-match-score {
+        display: inline-block;
+        padding: 6px 10px;
+        margin-top: 12px;
+        border-radius: 20px;
+        background: rgba(53, 166, 148, 0.10);
+        border: 1px solid rgba(53, 166, 148, 0.22);
+        color: #72d6c5;
+        font-size: 11px;
+        font-weight: 800;
+    }
+
+    .hjmi-match-reason {
+        color: #9cafb8;
+        font-size: 12px;
+        line-height: 1.7;
+        margin-top: 12px;
+    }
+
+    .hjmi-skill-wrap {
+        margin-top: 10px;
+    }
+
+    .hjmi-skill {
+        display: inline-block;
+        padding: 5px 9px;
+        margin: 3px 4px 3px 0;
+        border-radius: 14px;
+        background: rgba(53, 166, 148, 0.09);
+        border: 1px solid rgba(53, 166, 148, 0.18);
+        color: #86d8cb;
+        font-size: 10px;
+        font-weight: 700;
+    }
+
     .hjmi-empty {
         padding: 28px 22px;
         margin-top: 15px;
@@ -181,6 +250,56 @@ st.html(
 
 
 # ============================================================
+# HELPERS
+# ============================================================
+
+def safe(value):
+
+    if value is None:
+        return ""
+
+    return html.escape(
+        str(value)
+    )
+
+
+def list_value(value):
+
+    if isinstance(value, list):
+        return value
+
+    if isinstance(value, tuple):
+        return list(value)
+
+    return []
+
+
+def render_match_skills(skills):
+
+    skills = list_value(
+        skills
+    )
+
+    if not skills:
+        return ""
+
+    skill_html = "".join(
+        (
+            '<span class="hjmi-skill">'
+            f'{safe(skill)}'
+            '</span>'
+        )
+        for skill in skills[:10]
+    )
+
+    return (
+        '<div class="hjmi-skill-wrap">'
+        f'{skill_html}'
+        '</div>'
+    )
+
+
+# ============================================================
 # AUTHENTICATED USER
 # ============================================================
 
@@ -208,7 +327,9 @@ if is_authenticated():
     try:
         saved_jobs_count = get_saved_jobs_count()
     except Exception:
-        saved_jobs_count = len(saved_jobs)
+        saved_jobs_count = len(
+            saved_jobs
+        )
 
 
     # ========================================================
@@ -223,7 +344,91 @@ if is_authenticated():
     try:
         applications_count = get_applications_count()
     except Exception:
-        applications_count = len(applications)
+        applications_count = len(
+            applications
+        )
+
+
+    # ========================================================
+    # CAREER PROFILE
+    # ========================================================
+
+    try:
+        career_profile = get_career_profile()
+    except Exception:
+        career_profile = None
+
+    try:
+        profile_completion = (
+            get_profile_completion(
+                career_profile
+            )
+            if career_profile
+            else 0
+        )
+    except Exception:
+        profile_completion = 0
+
+    try:
+        matching_ready = (
+            profile_ready_for_matching(
+                career_profile
+            )
+            if career_profile
+            else False
+        )
+    except Exception:
+        matching_ready = False
+
+
+    # ========================================================
+    # CAREER MATCH
+    # ========================================================
+
+    recommendations = None
+
+    if matching_ready:
+
+        try:
+
+            jobs_df = load_jobs()
+
+            recommendations = (
+                get_recommended_jobs(
+                    jobs_df,
+                    career_profile,
+                    only_active=True,
+                )
+            )
+
+        except Exception:
+            recommendations = None
+
+
+    try:
+
+        match_summary = (
+            get_match_summary(
+                recommendations
+            )
+        )
+
+    except Exception:
+
+        match_summary = {
+            "total_matches": 0,
+            "strong_matches": 0,
+            "good_matches": 0,
+            "skill_matches": 0,
+        }
+
+
+    recommendation_count = (
+        match_summary.get(
+            "total_matches",
+            0,
+        )
+    )
 
 
     # ========================================================
@@ -234,8 +439,8 @@ if is_authenticated():
         "MY HJMI",
         f"Welcome, {display_name}",
         (
-            "Your personal career space for saved opportunities, "
-            "applications, job alerts and career preferences."
+            "Your personal career space for recommended "
+            "opportunities, saved jobs and application tracking."
         ),
     )
 
@@ -253,7 +458,7 @@ if is_authenticated():
             </div>
 
             <div class="hjmi-auth-status-value">
-                {display_name}
+                {safe(display_name)}
             </div>
 
             <div style="
@@ -261,7 +466,7 @@ if is_authenticated():
                 margin-top:6px;
                 font-size:12px;
             ">
-                {email}
+                {safe(email)}
             </div>
 
         </div>
@@ -273,9 +478,24 @@ if is_authenticated():
     # ACCOUNT METRICS
     # ========================================================
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(
+        4
+    )
+
 
     with col1:
+
+        st.metric(
+            "Recommended",
+            recommendation_count,
+            help=(
+                "Current HJMI opportunities matching "
+                "signals from your Career Profile."
+            ),
+        )
+
+
+    with col2:
 
         st.metric(
             "Saved Jobs",
@@ -286,7 +506,8 @@ if is_authenticated():
             ),
         )
 
-    with col2:
+
+    with col3:
 
         st.metric(
             "Applications",
@@ -297,14 +518,14 @@ if is_authenticated():
             ),
         )
 
-    with col3:
+
+    with col4:
 
         st.metric(
-            "Job Alerts",
-            "0",
+            "Profile",
+            f"{profile_completion}%",
             help=(
-                "Personalized job alerts will be "
-                "available in a future HJMI update."
+                "Career Profile completion."
             ),
         )
 
@@ -313,12 +534,627 @@ if is_authenticated():
     # WORKSPACE TABS
     # ========================================================
 
-    saved_tab, applications_tab = st.tabs(
+    (
+        recommended_tab,
+        saved_tab,
+        applications_tab,
+    ) = st.tabs(
         [
+            "◎ Recommended for You",
             "♡ Saved Jobs",
             "◉ Application Tracker",
         ]
     )
+
+
+    # ========================================================
+    # RECOMMENDED FOR YOU
+    # ========================================================
+
+    with recommended_tab:
+
+        st.html(
+            """
+            <div class="hjmi-section-heading">
+                Recommended for You
+            </div>
+
+            <div class="hjmi-section-subheading">
+                Current UAE technology opportunities matched
+                against signals in your HJMI Career Profile.
+            </div>
+            """
+        )
+
+
+        # ----------------------------------------------------
+        # NO PROFILE
+        # ----------------------------------------------------
+
+        if not career_profile:
+
+            st.html(
+                """
+                <div class="hjmi-empty">
+
+                    <div class="hjmi-empty-title">
+                        Create your Career Profile
+                    </div>
+
+                    <div class="hjmi-empty-text">
+                        Add your specialization, skills,
+                        experience, preferred locations and
+                        target roles to activate HJMI Career Match.
+                    </div>
+
+                </div>
+                """
+            )
+
+            st.page_link(
+                "pages/career_profile.py",
+                label="Create Career Profile",
+                icon="🎯",
+                use_container_width=True,
+            )
+
+
+        # ----------------------------------------------------
+        # PROFILE NOT READY
+        # ----------------------------------------------------
+
+        elif not matching_ready:
+
+            st.html(
+                """
+                <div class="hjmi-empty">
+
+                    <div class="hjmi-empty-title">
+                        Career Profile needs more information
+                    </div>
+
+                    <div class="hjmi-empty-text">
+                        Add skills, a specialization or target
+                        roles before HJMI can calculate
+                        personalized opportunity matches.
+                    </div>
+
+                </div>
+                """
+            )
+
+            st.page_link(
+                "pages/career_profile.py",
+                label="Update Career Profile",
+                icon="🎯",
+                use_container_width=True,
+            )
+
+
+        # ----------------------------------------------------
+        # NO MATCHES
+        # ----------------------------------------------------
+
+        elif (
+            recommendations is None
+            or recommendations.empty
+        ):
+
+            st.html(
+                """
+                <div class="hjmi-empty">
+
+                    <div class="hjmi-empty-title">
+                        No current matches found
+                    </div>
+
+                    <div class="hjmi-empty-text">
+                        HJMI did not find a current opportunity
+                        meeting the Career Match rules for your
+                        profile. Your profile remains active and
+                        can be used again as the job dataset updates.
+                    </div>
+
+                </div>
+                """
+            )
+
+            st.page_link(
+                "pages/career_profile.py",
+                label="Review Career Profile",
+                icon="🎯",
+                use_container_width=True,
+            )
+
+
+        # ----------------------------------------------------
+        # MATCHES
+        # ----------------------------------------------------
+
+        else:
+
+            summary_col1, summary_col2, summary_col3 = (
+                st.columns(
+                    3
+                )
+            )
+
+            with summary_col1:
+
+                st.metric(
+                    "Total Matches",
+                    match_summary.get(
+                        "total_matches",
+                        0,
+                    ),
+                )
+
+            with summary_col2:
+
+                st.metric(
+                    "Strong Matches",
+                    match_summary.get(
+                        "strong_matches",
+                        0,
+                    ),
+                )
+
+            with summary_col3:
+
+                st.metric(
+                    "Good Matches",
+                    match_summary.get(
+                        "good_matches",
+                        0,
+                    ),
+                )
+
+
+            st.caption(
+                "HJMI Match measures overlap between your "
+                "Career Profile and available job data. "
+                "It does not predict hiring or acceptance."
+            )
+
+            st.divider()
+
+
+            # Show a manageable number initially
+            display_limit = min(
+                len(recommendations),
+                25,
+            )
+
+            for index in range(
+                display_limit
+            ):
+
+                job = (
+                    recommendations
+                    .iloc[index]
+                    .to_dict()
+                )
+
+
+                job_title = (
+                    job.get(
+                        "job_title_display",
+                        "",
+                    )
+                    or job.get(
+                        "job_title",
+                        "",
+                    )
+                    or "Untitled Opportunity"
+                )
+
+
+                company = (
+                    job.get(
+                        "company_display",
+                        "",
+                    )
+                    or job.get(
+                        "company",
+                        "",
+                    )
+                    or "Company not specified"
+                )
+
+
+                location = (
+                    job.get(
+                        "location_display",
+                        "",
+                    )
+                    or job.get(
+                        "location",
+                        "",
+                    )
+                    or "Location not specified"
+                )
+
+
+                job_url = (
+                    job.get(
+                        "job_url",
+                        "",
+                    )
+                    or ""
+                )
+
+
+                job_identifier = (
+                    str(job_url).strip()
+                    or (
+                        f"{job_title}|"
+                        f"{company}|"
+                        f"{location}"
+                    )
+                )
+
+
+                match_score = (
+                    job.get(
+                        "hjmi_match_score",
+                        0,
+                    )
+                    or 0
+                )
+
+
+                match_label = (
+                    job.get(
+                        "hjmi_match_label",
+                        "",
+                    )
+                    or "Profile Match"
+                )
+
+
+                matched_skills = list_value(
+                    job.get(
+                        "hjmi_matched_skills",
+                        [],
+                    )
+                )
+
+
+                match_reasons = list_value(
+                    job.get(
+                        "hjmi_match_reasons",
+                        [],
+                    )
+                )
+
+
+                experience_label = (
+                    job.get(
+                        "hjmi_experience_label",
+                        "",
+                    )
+                    or ""
+                )
+
+
+                reasons_text = (
+                    " • ".join(
+                        str(reason)
+                        for reason
+                        in match_reasons
+                    )
+                )
+
+
+                if not reasons_text:
+                    reasons_text = (
+                        "Profile signals matched "
+                        "this opportunity."
+                    )
+
+
+                skills_html = (
+                    render_match_skills(
+                        matched_skills
+                    )
+                )
+
+
+                st.html(
+                    f"""
+                    <div class="hjmi-job-card">
+
+                        <div class="hjmi-job-title">
+                            {safe(job_title)}
+                        </div>
+
+                        <div class="hjmi-job-company">
+                            {safe(company)}
+                        </div>
+
+                        <div class="hjmi-job-location">
+                            📍 {safe(location)}
+                        </div>
+
+                        <div>
+                            <span class="hjmi-match-badge">
+                                {safe(match_label)}
+                            </span>
+
+                            <span class="hjmi-match-score">
+                                HJMI Match {safe(match_score)}%
+                            </span>
+                        </div>
+
+                        <div class="hjmi-match-reason">
+                            Why this matched:
+                            {safe(reasons_text)}
+                        </div>
+
+                        {skills_html}
+
+                    </div>
+                    """
+                )
+
+
+                if experience_label:
+
+                    st.caption(
+                        f"Experience signal: "
+                        f"{experience_label}"
+                    )
+
+
+                # --------------------------------------------
+                # CURRENT SAVED / TRACKED STATE
+                # --------------------------------------------
+
+                try:
+
+                    already_saved = (
+                        is_job_saved(
+                            job_identifier
+                        )
+                    )
+
+                except Exception:
+
+                    already_saved = False
+
+
+                try:
+
+                    already_tracked = (
+                        is_application_tracked(
+                            job_identifier
+                        )
+                    )
+
+                except Exception:
+
+                    already_tracked = False
+
+
+                action_col1, action_col2, action_col3 = (
+                    st.columns(
+                        [2, 1, 1]
+                    )
+                )
+
+
+                # --------------------------------------------
+                # VIEW JOB
+                # --------------------------------------------
+
+                with action_col1:
+
+                    if job_url:
+
+                        st.link_button(
+                            "View Job",
+                            job_url,
+                            use_container_width=True,
+                        )
+
+                    else:
+
+                        st.button(
+                            "Job Link Unavailable",
+                            key=(
+                                f"recommended_no_link_"
+                                f"{index}"
+                            ),
+                            disabled=True,
+                            use_container_width=True,
+                        )
+
+
+                # --------------------------------------------
+                # SAVE JOB
+                # --------------------------------------------
+
+                with action_col2:
+
+                    if already_saved:
+
+                        st.button(
+                            "✓ Saved",
+                            key=(
+                                f"recommended_saved_"
+                                f"{index}"
+                            ),
+                            disabled=True,
+                            use_container_width=True,
+                        )
+
+                    else:
+
+                        if st.button(
+                            "♡ Save",
+                            key=(
+                                f"recommended_save_"
+                                f"{index}"
+                            ),
+                            use_container_width=True,
+                        ):
+
+                            result = save_job(
+                                job_id=job_identifier,
+                                job_title=job_title,
+                                company=company,
+                                location=location,
+                                job_url=job_url,
+                            )
+
+                            success = (
+                                result.get(
+                                    "success",
+                                    False,
+                                )
+                                if isinstance(
+                                    result,
+                                    dict,
+                                )
+                                else bool(
+                                    result
+                                )
+                            )
+
+                            if success:
+
+                                st.toast(
+                                    "✓ Saved to My HJMI"
+                                )
+
+                                st.rerun()
+
+                            else:
+
+                                message = (
+                                    result.get(
+                                        "message",
+                                        (
+                                            "HJMI could not "
+                                            "save this job."
+                                        ),
+                                    )
+                                    if isinstance(
+                                        result,
+                                        dict,
+                                    )
+                                    else (
+                                        "HJMI could not "
+                                        "save this job."
+                                    )
+                                )
+
+                                st.error(
+                                    message
+                                )
+
+
+                # --------------------------------------------
+                # TRACK APPLICATION
+                # --------------------------------------------
+
+                with action_col3:
+
+                    if already_tracked:
+
+                        st.button(
+                            "✓ Tracked",
+                            key=(
+                                f"recommended_tracked_"
+                                f"{index}"
+                            ),
+                            disabled=True,
+                            use_container_width=True,
+                        )
+
+                    else:
+
+                        if st.button(
+                            "Track",
+                            key=(
+                                f"recommended_track_"
+                                f"{index}"
+                            ),
+                            use_container_width=True,
+                        ):
+
+                            result = add_application(
+                                job_id=job_identifier,
+                                job_title=job_title,
+                                company=company,
+                                location=location,
+                                job_url=job_url,
+                                status="Applied",
+                            )
+
+                            success = (
+                                result.get(
+                                    "success",
+                                    False,
+                                )
+                                if isinstance(
+                                    result,
+                                    dict,
+                                )
+                                else bool(
+                                    result
+                                )
+                            )
+
+                            if success:
+
+                                st.toast(
+                                    "✓ Application added "
+                                    "to your tracker."
+                                )
+
+                                st.rerun()
+
+                            else:
+
+                                message = (
+                                    result.get(
+                                        "message",
+                                        (
+                                            "HJMI could not "
+                                            "track this application."
+                                        ),
+                                    )
+                                    if isinstance(
+                                        result,
+                                        dict,
+                                    )
+                                    else (
+                                        "HJMI could not "
+                                        "track this application."
+                                    )
+                                )
+
+                                st.error(
+                                    message
+                                )
+
+
+                st.divider()
+
+
+            if len(
+                recommendations
+            ) > display_limit:
+
+                st.info(
+                    (
+                        f"Showing the first "
+                        f"{display_limit} of "
+                        f"{len(recommendations)} "
+                        f"current profile matches."
+                    )
+                )
 
 
     # ========================================================
@@ -352,7 +1188,8 @@ if is_authenticated():
                     </div>
 
                     <div class="hjmi-empty-text">
-                        Explore Find Jobs and save opportunities
+                        Explore Find Jobs or your personalized
+                        recommendations and save opportunities
                         you want to review later.
                     </div>
 
@@ -367,9 +1204,12 @@ if is_authenticated():
                 use_container_width=True,
             )
 
+
         else:
 
-            for index, job in enumerate(saved_jobs):
+            for index, job in enumerate(
+                saved_jobs
+            ):
 
                 job_id = str(
                     job.get(
@@ -377,6 +1217,7 @@ if is_authenticated():
                         "",
                     )
                 )
+
 
                 job_title = (
                     job.get(
@@ -386,6 +1227,7 @@ if is_authenticated():
                     or "Untitled Opportunity"
                 )
 
+
                 company = (
                     job.get(
                         "company",
@@ -394,6 +1236,7 @@ if is_authenticated():
                     or "Company not specified"
                 )
 
+
                 location = (
                     job.get(
                         "location",
@@ -401,6 +1244,7 @@ if is_authenticated():
                     )
                     or "Location not specified"
                 )
+
 
                 job_url = (
                     job.get(
@@ -416,15 +1260,15 @@ if is_authenticated():
                     <div class="hjmi-job-card">
 
                         <div class="hjmi-job-title">
-                            {job_title}
+                            {safe(job_title)}
                         </div>
 
                         <div class="hjmi-job-company">
-                            {company}
+                            {safe(company)}
                         </div>
 
                         <div class="hjmi-job-location">
-                            📍 {location}
+                            📍 {safe(location)}
                         </div>
 
                     </div>
@@ -432,8 +1276,10 @@ if is_authenticated():
                 )
 
 
-                action_col1, action_col2 = st.columns(
-                    [3, 1]
+                action_col1, action_col2 = (
+                    st.columns(
+                        [3, 1]
+                    )
                 )
 
 
@@ -451,7 +1297,10 @@ if is_authenticated():
 
                         st.button(
                             "Job Link Unavailable",
-                            key=f"no_link_{index}",
+                            key=(
+                                f"saved_no_link_"
+                                f"{index}"
+                            ),
                             disabled=True,
                             use_container_width=True,
                         )
@@ -482,7 +1331,9 @@ if is_authenticated():
                                 result,
                                 dict,
                             )
-                            else bool(result)
+                            else bool(
+                                result
+                            )
                         )
 
                         if success:
@@ -536,7 +1387,8 @@ if is_authenticated():
 
                     <div class="hjmi-empty-text">
                         When you apply for an opportunity,
-                        add it to your tracker from Find Jobs.
+                        add it to your tracker from Find Jobs
+                        or Recommended for You.
                     </div>
 
                 </div>
@@ -549,6 +1401,7 @@ if is_authenticated():
                 icon="🔎",
                 use_container_width=True,
             )
+
 
         else:
 
@@ -565,9 +1418,12 @@ if is_authenticated():
                 applications
             ):
 
-                application_id = application.get(
-                    "id"
+                application_id = (
+                    application.get(
+                        "id"
+                    )
                 )
+
 
                 job_title = (
                     application.get(
@@ -577,6 +1433,7 @@ if is_authenticated():
                     or "Untitled Opportunity"
                 )
 
+
                 company = (
                     application.get(
                         "company",
@@ -584,6 +1441,7 @@ if is_authenticated():
                     )
                     or "Company not specified"
                 )
+
 
                 location = (
                     application.get(
@@ -593,6 +1451,7 @@ if is_authenticated():
                     or "Location not specified"
                 )
 
+
                 job_url = (
                     application.get(
                         "job_url",
@@ -601,6 +1460,7 @@ if is_authenticated():
                     or ""
                 )
 
+
                 current_status = (
                     application.get(
                         "status",
@@ -608,6 +1468,7 @@ if is_authenticated():
                     )
                     or "Applied"
                 )
+
 
                 current_notes = (
                     application.get(
@@ -618,7 +1479,10 @@ if is_authenticated():
                 )
 
 
-                if current_status not in status_options:
+                if (
+                    current_status
+                    not in status_options
+                ):
                     current_status = "Applied"
 
 
@@ -627,19 +1491,19 @@ if is_authenticated():
                     <div class="hjmi-job-card">
 
                         <div class="hjmi-job-title">
-                            {job_title}
+                            {safe(job_title)}
                         </div>
 
                         <div class="hjmi-job-company">
-                            {company}
+                            {safe(company)}
                         </div>
 
                         <div class="hjmi-job-location">
-                            📍 {location}
+                            📍 {safe(location)}
                         </div>
 
                         <div class="hjmi-tracker-status">
-                            {current_status}
+                            {safe(current_status)}
                         </div>
 
                     </div>
@@ -647,14 +1511,16 @@ if is_authenticated():
                 )
 
 
-                tracker_col1, tracker_col2 = st.columns(
-                    [2, 1]
+                tracker_col1, tracker_col2 = (
+                    st.columns(
+                        [2, 1]
+                    )
                 )
 
 
-                # ============================================
+                # --------------------------------------------
                 # STATUS
-                # ============================================
+                # --------------------------------------------
 
                 with tracker_col1:
 
@@ -666,7 +1532,8 @@ if is_authenticated():
                         ),
                         key=(
                             f"application_status_"
-                            f"{application_id}_{index}"
+                            f"{application_id}_"
+                            f"{index}"
                         ),
                     )
 
@@ -674,14 +1541,14 @@ if is_authenticated():
                 with tracker_col2:
 
                     st.write("")
-
                     st.write("")
 
                     if st.button(
                         "Update Status",
                         key=(
                             f"update_status_"
-                            f"{application_id}_{index}"
+                            f"{application_id}_"
+                            f"{index}"
                         ),
                         use_container_width=True,
                     ):
@@ -708,9 +1575,9 @@ if is_authenticated():
                             )
 
 
-                # ============================================
+                # --------------------------------------------
                 # NOTES
-                # ============================================
+                # --------------------------------------------
 
                 notes = st.text_area(
                     "Notes",
@@ -721,7 +1588,8 @@ if is_authenticated():
                     ),
                     key=(
                         f"application_notes_"
-                        f"{application_id}_{index}"
+                        f"{application_id}_"
+                        f"{index}"
                     ),
                     height=100,
                 )
@@ -731,7 +1599,8 @@ if is_authenticated():
                     "Save Notes",
                     key=(
                         f"save_notes_"
-                        f"{application_id}_{index}"
+                        f"{application_id}_"
+                        f"{index}"
                     ),
                     use_container_width=True,
                 ):
@@ -756,14 +1625,15 @@ if is_authenticated():
                         )
 
 
-                # ============================================
+                # --------------------------------------------
                 # JOB / REMOVE ACTIONS
-                # ============================================
+                # --------------------------------------------
 
-                job_action_col1, job_action_col2 = (
-                    st.columns(
-                        [3, 1]
-                    )
+                (
+                    job_action_col1,
+                    job_action_col2,
+                ) = st.columns(
+                    [3, 1]
                 )
 
 
@@ -783,7 +1653,8 @@ if is_authenticated():
                             "Job Link Unavailable",
                             key=(
                                 f"application_no_link_"
-                                f"{application_id}_{index}"
+                                f"{application_id}_"
+                                f"{index}"
                             ),
                             disabled=True,
                             use_container_width=True,
@@ -796,14 +1667,17 @@ if is_authenticated():
                         "Remove",
                         key=(
                             f"remove_application_"
-                            f"{application_id}_{index}"
+                            f"{application_id}_"
+                            f"{index}"
                         ),
                         use_container_width=True,
                         type="secondary",
                     ):
 
-                        success = remove_application(
-                            application_id
+                        success = (
+                            remove_application(
+                                application_id
+                            )
                         )
 
                         if success:
@@ -827,15 +1701,16 @@ if is_authenticated():
 
 
     # ========================================================
-    # ACCOUNT ROADMAP
+    # WORKSPACE INFORMATION
     # ========================================================
 
     info_box(
         "Your HJMI Workspace",
         (
-            "Saved Jobs and Application Tracker are connected "
-            "to your HJMI account. Job alerts and career "
-            "preferences will be added as the platform develops."
+            "Career Match uses your approved Career Profile "
+            "to identify relevant opportunities from the HJMI "
+            "job dataset. Match information represents profile "
+            "and job-data overlap, not hiring probability."
         ),
         "👤",
     )
@@ -881,8 +1756,8 @@ st.html(
     """
     <div class="hjmi-auth-intro">
         Your HJMI account is your personal space for
-        saved jobs, application tracking, career preferences
-        and personalized opportunity alerts.
+        Career Match, saved jobs, application tracking,
+        career preferences and personalized opportunities.
     </div>
     """
 )
@@ -922,10 +1797,12 @@ with sign_in_tab:
             placeholder="Enter your password",
         )
 
-        login_submit = st.form_submit_button(
-            "Sign In",
-            use_container_width=True,
-            type="primary",
+        login_submit = (
+            st.form_submit_button(
+                "Sign In",
+                use_container_width=True,
+                type="primary",
+            )
         )
 
 
@@ -990,10 +1867,14 @@ with create_account_tab:
             placeholder="Minimum 8 characters",
         )
 
-        signup_password_confirm = st.text_input(
-            "Confirm password",
-            type="password",
-            placeholder="Enter your password again",
+        signup_password_confirm = (
+            st.text_input(
+                "Confirm password",
+                type="password",
+                placeholder=(
+                    "Enter your password again"
+                ),
+            )
         )
 
         terms = st.checkbox(
@@ -1003,10 +1884,12 @@ with create_account_tab:
             )
         )
 
-        signup_submit = st.form_submit_button(
-            "Create Account",
-            use_container_width=True,
-            type="primary",
+        signup_submit = (
+            st.form_submit_button(
+                "Create Account",
+                use_container_width=True,
+                type="primary",
+            )
         )
 
 
