@@ -8,8 +8,10 @@ This pipeline:
 3. Filters technology-related roles
 4. Extracts technical skills
 5. Preserves salary information when available
-6. Removes duplicates
-7. Creates the dashboard-ready dataset
+6. Tracks active, inactive and newly discovered jobs
+7. Preserves historical job-market data
+8. Removes duplicates
+9. Creates the dashboard-ready dataset
 
 Developer:
 Hasan R. H. Abdalhadi
@@ -243,6 +245,23 @@ def extract_skills(text):
     return detected
 
 
+def normalize_boolean(value):
+    """Safely normalize CSV/API boolean values."""
+
+    if isinstance(value, bool):
+        return value
+
+    if pd.isna(value):
+        return False
+
+    return str(value).strip().lower() in {
+        "true",
+        "1",
+        "yes",
+        "y",
+    }
+
+
 # ============================================================
 # PREPARE DATA
 # ============================================================
@@ -261,7 +280,7 @@ def prepare_data():
     )
 
     # --------------------------------------------------------
-    # Fetch live/current source data
+    # Fetch current + historical source data
     # --------------------------------------------------------
 
     df = load_dataset()
@@ -299,12 +318,46 @@ def prepare_data():
         "job_url",
         "source",
         "fetched_at",
+        "first_seen",
+        "last_seen",
+        "is_active",
+        "status",
+        "is_new",
     ]
 
     for column in optional_columns:
 
         if column not in df.columns:
-            df[column] = ""
+
+            if column in ["is_active", "is_new"]:
+                df[column] = False
+
+            else:
+                df[column] = ""
+
+    # --------------------------------------------------------
+    # Normalize tracking fields
+    # --------------------------------------------------------
+
+    df["is_active"] = (
+        df["is_active"]
+        .apply(normalize_boolean)
+    )
+
+    df["is_new"] = (
+        df["is_new"]
+        .apply(normalize_boolean)
+    )
+
+    df["status"] = (
+        df["is_active"]
+        .map(
+            {
+                True: "Active",
+                False: "Inactive",
+            }
+        )
+    )
 
     # --------------------------------------------------------
     # Clean text
@@ -423,6 +476,11 @@ def prepare_data():
         "job_url",
         "source",
         "fetched_at",
+        "first_seen",
+        "last_seen",
+        "is_active",
+        "status",
+        "is_new",
     ]
 
     output = tech_df[
@@ -493,7 +551,10 @@ def prepare_data():
         )
 
         output = pd.concat(
-            [with_id, without_id],
+            [
+                with_id,
+                without_id,
+            ],
             ignore_index=True,
         )
 
@@ -509,26 +570,30 @@ def prepare_data():
         )
 
     # --------------------------------------------------------
-    # Sort newest jobs first
+    # Sort newest / active jobs first
     # --------------------------------------------------------
 
-    if "publication_date" in output.columns:
+    output["_sort_date"] = pd.to_datetime(
+        output["publication_date"],
+        errors="coerce",
+        utc=True,
+    )
 
-        output["_sort_date"] = pd.to_datetime(
-            output["publication_date"],
-            errors="coerce",
-            utc=True,
-        )
-
-        output = output.sort_values(
+    output = output.sort_values(
+        by=[
+            "is_active",
             "_sort_date",
-            ascending=False,
-            na_position="last",
-        )
+        ],
+        ascending=[
+            False,
+            False,
+        ],
+        na_position="last",
+    )
 
-        output = output.drop(
-            columns=["_sort_date"]
-        )
+    output = output.drop(
+        columns=["_sort_date"]
+    )
 
     output = output.reset_index(
         drop=True
@@ -546,6 +611,20 @@ def prepare_data():
     # --------------------------------------------------------
     # Statistics
     # --------------------------------------------------------
+
+    total_historical = len(output)
+
+    active_jobs = int(
+        output["is_active"].sum()
+    )
+
+    inactive_jobs = (
+        total_historical - active_jobs
+    )
+
+    new_jobs = int(
+        output["is_new"].sum()
+    )
 
     unique_titles = (
         output["job_title"]
@@ -579,6 +658,10 @@ def prepare_data():
         .sum()
     )
 
+    # --------------------------------------------------------
+    # Print results
+    # --------------------------------------------------------
+
     print()
     print("======================================")
     print(" HJMI DATA PREPARATION COMPLETE")
@@ -586,11 +669,28 @@ def prepare_data():
     print()
 
     print(
-        f"UAE technology jobs: {len(output):,}"
+        f"Active UAE technology jobs: "
+        f"{active_jobs:,}"
     )
 
     print(
-        f"Unique job titles: {unique_titles:,}"
+        f"New jobs this update: "
+        f"{new_jobs:,}"
+    )
+
+    print(
+        f"Inactive historical jobs: "
+        f"{inactive_jobs:,}"
+    )
+
+    print(
+        f"Total historical jobs collected: "
+        f"{total_historical:,}"
+    )
+
+    print(
+        f"Unique job titles: "
+        f"{unique_titles:,}"
     )
 
     print(
@@ -624,6 +724,10 @@ def prepare_data():
         "location",
         "skills",
         "salary",
+        "status",
+        "is_new",
+        "first_seen",
+        "last_seen",
     ]
 
     print(
