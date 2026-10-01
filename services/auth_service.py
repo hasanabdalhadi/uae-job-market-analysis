@@ -22,18 +22,21 @@ COOKIE_EXPIRY_DAYS = 30
 # COOKIE MANAGER
 # ============================================================
 
+# Create one CookieManager component only.
+# Creating it repeatedly with the same key causes Streamlit's
+# duplicate-element-key error.
+
+_COOKIE_MANAGER = stx.CookieManager(
+    key="hjmi_auth_cookie_manager"
+)
+
+
 def get_cookie_manager():
     """
-    Create the HJMI browser cookie manager.
-
-    Important:
-    CookieManager must not be wrapped with st.cache_resource
-    because it uses a Streamlit component internally.
+    Return the single HJMI CookieManager instance.
     """
 
-    return stx.CookieManager(
-        key="hjmi_auth_cookie_manager"
-    )
+    return _COOKIE_MANAGER
 
 
 # ============================================================
@@ -215,7 +218,9 @@ def restore_session():
     from the persistent refresh-token cookie.
     """
 
-    # Session already exists.
+    # If the current Streamlit session is already
+    # authenticated, no restoration is required.
+
     if (
         st.session_state.get(
             "hjmi_authenticated",
@@ -263,6 +268,8 @@ def restore_session():
         )
 
         # Supabase may rotate the refresh token.
+        # Save the newest refresh token.
+
         save_auth_cookie(
             response.session.refresh_token
         )
@@ -433,7 +440,7 @@ def sign_in(
             "user": response.user,
         }
 
-    except Exception:
+    except Exception as error:
 
         return {
             "success": False,
