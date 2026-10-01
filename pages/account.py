@@ -243,7 +243,9 @@ with sign_in_tab:
 
     if login_submit:
 
-        with st.spinner("Signing in..."):
+        with st.spinner(
+            "Signing in..."
+        ):
 
             result = sign_in(
                 login_email,
@@ -256,7 +258,10 @@ with sign_in_tab:
                 result["message"]
             )
 
-            st.rerun()
+            st.info(
+                "Sign in completed. Your HJMI session "
+                "is being saved."
+            )
 
         else:
 
@@ -271,7 +276,9 @@ with sign_in_tab:
 
 with create_account_tab:
 
-    st.subheader("Create your HJMI account")
+    st.subheader(
+        "Create your HJMI account"
+    )
 
     with st.form(
         "hjmi_create_account_form",
@@ -321,7 +328,10 @@ with create_account_tab:
                 "Please enter your full name."
             )
 
-        elif signup_password != signup_password_confirm:
+        elif (
+            signup_password
+            != signup_password_confirm
+        ):
 
             st.error(
                 "The passwords do not match."
@@ -330,7 +340,8 @@ with create_account_tab:
         elif not terms:
 
             st.error(
-                "Please confirm the account information notice."
+                "Please confirm the account "
+                "information notice."
             )
 
         else:
