@@ -107,9 +107,11 @@ def save_job(
                 "message": "This job is already saved.",
             }
 
+        # Temporary debugging message.
+        # This allows us to see the real Supabase error.
         return {
             "success": False,
-            "message": "HJMI could not save this job.",
+            "message": f"Supabase error: {str(error)}",
         }
 
 
