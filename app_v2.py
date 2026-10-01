@@ -83,6 +83,12 @@ account_page = st.Page(
     icon="👤",
 )
 
+career_profile_page = st.Page(
+    "pages/career_profile.py",
+    title="Career Profile",
+    icon="🎯",
+)
+
 about_page = st.Page(
     "pages/about.py",
     title="About & Methodology",
@@ -105,6 +111,7 @@ navigation = st.navigation(
         salary_intelligence_page,
         market_trends_page,
         account_page,
+        career_profile_page,
         about_page,
     ],
     position="hidden",
@@ -501,6 +508,13 @@ with st.sidebar:
             account_page,
             label="My HJMI",
             icon="👤",
+            use_container_width=True,
+        )
+
+        st.page_link(
+            career_profile_page,
+            label="Career Profile",
+            icon="🎯",
             use_container_width=True,
         )
 
