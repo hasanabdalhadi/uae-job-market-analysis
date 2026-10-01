@@ -459,209 +459,89 @@ def clear_job_alerts():
     except Exception:
         return False
 
-
 # ============================================================
 # ALERT PREFERENCES
 # ============================================================
 
 def get_alert_preferences():
-    """
-    Return the current user's Smart Job Alert preferences.
-    """
-
     if not is_authenticated():
         return None
-
     user = get_current_user()
-
     if user is None:
         return None
-
     supabase = get_authenticated_client()
-
     if supabase is None:
         return None
-
     try:
-        response = (
-            supabase.table("job_alert_preferences")
-            .select("*")
-            .eq("user_id", user.id)
-            .limit(1)
-            .execute()
-        )
-
-        if response.data:
-            return response.data[0]
-
-        return None
-
+        response = (supabase.table("job_alert_preferences").select("*")
+                    .eq("user_id", user.id).limit(1).execute())
+        return response.data[0] if response.data else None
     except Exception:
         return None
 
 
 def initialize_alert_preferences():
-    """
-    Create the user's alert baseline.
-
-    On first initialization, last_checked_at is set by the database
-    to the current time. This prevents existing recommendations from
-    being treated as brand-new alerts.
-    """
-
+    """Create a baseline only; existing recommendations do not become alerts."""
     if not is_authenticated():
-        return {
-            "success": False,
-            "created": False,
-            "message": "Please sign in to use Smart Job Alerts.",
-        }
-
+        return {"success": False, "created": False, "message": "Please sign in to use Smart Job Alerts."}
     user = get_current_user()
-
     if user is None:
-        return {
-            "success": False,
-            "created": False,
-            "message": "HJMI could not identify the current user.",
-        }
-
+        return {"success": False, "created": False, "message": "HJMI could not identify the current user."}
     existing = get_alert_preferences()
-
     if existing:
-        return {
-            "success": True,
-            "created": False,
-            "preferences": existing,
-            "message": "Smart Job Alerts are already initialized.",
-        }
-
+        return {"success": True, "created": False, "preferences": existing, "message": "Smart Job Alerts are already initialized."}
     supabase = get_authenticated_client()
-
     if supabase is None:
-        return {
-            "success": False,
-            "created": False,
-            "message": "HJMI could not connect to your account.",
-        }
-
+        return {"success": False, "created": False, "message": "HJMI could not connect to your account."}
     try:
-        response = (
-            supabase.table("job_alert_preferences")
-            .insert(
-                {
-                    "user_id": user.id,
-                    "alerts_enabled": True,
-                }
-            )
-            .execute()
-        )
-
-        preferences = (
-            response.data[0]
-            if response.data
-            else get_alert_preferences()
-        )
-
-        return {
-            "success": True,
-            "created": True,
-            "preferences": preferences,
-            "message": "Smart Job Alerts initialized.",
-        }
-
+        response = supabase.table("job_alert_preferences").insert({
+            "user_id": user.id,
+            "alerts_enabled": True,
+        }).execute()
+        preferences = response.data[0] if response.data else get_alert_preferences()
+        return {"success": True, "created": True, "preferences": preferences, "message": "Smart Job Alerts initialized."}
     except Exception as error:
-        return {
-            "success": False,
-            "created": False,
-            "message": f"Alert initialization error: {str(error)}",
-        }
+        return {"success": False, "created": False, "message": f"Alert initialization error: {str(error)}"}
 
 
 def set_alerts_enabled(enabled):
-    """
-    Enable or disable Smart Job Alerts for the current user.
-    """
-
     if not is_authenticated():
         return False
-
     user = get_current_user()
-
     if user is None:
         return False
-
-    preferences = get_alert_preferences()
-
-    if preferences is None:
+    if get_alert_preferences() is None:
         result = initialize_alert_preferences()
-
         if not result.get("success"):
             return False
-
     supabase = get_authenticated_client()
-
     if supabase is None:
         return False
-
     try:
-        (
-            supabase.table("job_alert_preferences")
-            .update(
-                {
-                    "alerts_enabled": bool(enabled),
-                }
-            )
-            .eq("user_id", user.id)
-            .execute()
-        )
-
+        (supabase.table("job_alert_preferences")
+         .update({"alerts_enabled": bool(enabled)})
+         .eq("user_id", user.id).execute())
         return True
-
     except Exception:
         return False
 
 
 def update_last_checked_at(timestamp_value=None):
-    """
-    Advance the alert baseline after a successful Smart Alert check.
-    """
-
     if not is_authenticated():
         return False
-
     user = get_current_user()
-
     if user is None:
         return False
-
     supabase = get_authenticated_client()
-
     if supabase is None:
         return False
-
     try:
-        payload = {}
-
-        if timestamp_value is not None:
-            payload["last_checked_at"] = str(timestamp_value)
-
-        else:
-            # Generate an explicit UTC timestamp client-side.
-            from datetime import datetime, timezone
-
-            payload["last_checked_at"] = (
-                datetime.now(timezone.utc).isoformat()
-            )
-
-        (
-            supabase.table("job_alert_preferences")
-            .update(payload)
-            .eq("user_id", user.id)
-            .execute()
-        )
-
+        from datetime import datetime, timezone
+        value = str(timestamp_value) if timestamp_value is not None else datetime.now(timezone.utc).isoformat()
+        (supabase.table("job_alert_preferences")
+         .update({"last_checked_at": value})
+         .eq("user_id", user.id).execute())
         return True
-
     except Exception:
         return False
 
@@ -672,65 +552,37 @@ def update_last_checked_at(timestamp_value=None):
 
 def sync_smart_job_alerts(recommendations):
     """
-    Create in-app alerts only for newly discovered HJMI jobs that
-    match the user's Career Profile.
+    Create alerts only when a NEW HJMI data collection contains jobs
+    marked is_new=True that also qualify as Career Match recommendations.
 
-    `first_seen` is the HJMI discovery timestamp/date. It is not
-    necessarily the employer's original posting time.
-
-    The first sync creates a baseline and intentionally generates
-    no alerts for recommendations that already existed.
+    fetched_at identifies the HJMI collection cycle. first_seen is used
+    only as a compatibility fallback for older data.
     """
-
-    result = {
-        "success": False,
-        "initialized": False,
-        "checked": 0,
-        "created": 0,
-        "message": "",
-    }
+    result = {"success": False, "initialized": False, "checked": 0, "created": 0, "message": ""}
 
     if not is_authenticated():
         result["message"] = "Please sign in to use Smart Job Alerts."
         return result
 
     preferences = get_alert_preferences()
-
-    # First run: create baseline only. Do not flood the user with
-    # all recommendations that existed before alerts were enabled.
     if preferences is None:
         init_result = initialize_alert_preferences()
-
         if not init_result.get("success"):
-            result["message"] = init_result.get(
-                "message",
-                "HJMI could not initialize Smart Job Alerts.",
-            )
+            result["message"] = init_result.get("message", "HJMI could not initialize Smart Job Alerts.")
             return result
-
-        result["success"] = True
-        result["initialized"] = True
-        result["message"] = (
-            "Smart Job Alerts initialized. Future new matching "
-            "opportunities can now generate alerts."
-        )
+        result.update(success=True, initialized=True, message="Smart Job Alerts initialized. Future new matching opportunities can now generate alerts.")
         return result
 
     if not preferences.get("alerts_enabled", True):
-        result["success"] = True
-        result["message"] = "Smart Job Alerts are disabled."
+        result.update(success=True, message="Smart Job Alerts are disabled.")
         return result
 
     last_checked_at = preferences.get("last_checked_at")
-
     if not last_checked_at:
         if update_last_checked_at():
-            result["success"] = True
-            result["initialized"] = True
-            result["message"] = "Smart Job Alerts baseline created."
+            result.update(success=True, initialized=True, message="Smart Job Alerts baseline created.")
         else:
             result["message"] = "HJMI could not create the alert baseline."
-
         return result
 
     if recommendations is None:
@@ -739,88 +591,68 @@ def sync_smart_job_alerts(recommendations):
 
     try:
         import pandas as pd
+        from datetime import datetime, timezone
 
         if not isinstance(recommendations, pd.DataFrame):
             recommendations = pd.DataFrame(recommendations)
 
-        if recommendations.empty:
-            # The check itself succeeded even though there are no matches.
-            update_last_checked_at()
-            result["success"] = True
-            result["message"] = "No matching opportunities were available."
-            return result
-
-        if "first_seen" not in recommendations.columns:
-            result["message"] = (
-                "HJMI could not determine which opportunities are new."
-            )
-            return result
-
-        baseline = pd.to_datetime(
-            last_checked_at,
-            utc=True,
-            errors="coerce",
-        )
-
+        baseline = pd.to_datetime(last_checked_at, utc=True, errors="coerce")
         if pd.isna(baseline):
             if update_last_checked_at():
-                result["success"] = True
-                result["initialized"] = True
-                result["message"] = "Smart Job Alerts baseline refreshed."
+                result.update(success=True, initialized=True, message="Smart Job Alerts baseline refreshed.")
             else:
-                result["message"] = (
-                    "HJMI could not refresh the alert baseline."
-                )
+                result["message"] = "HJMI could not refresh the alert baseline."
+            return result
 
+        if recommendations.empty:
+            result.update(success=True, message="No matching opportunities were available.")
             return result
 
         working = recommendations.copy()
 
-        working["_alert_first_seen"] = pd.to_datetime(
-            working["first_seen"],
-            utc=True,
-            errors="coerce",
-        )
+        def _as_bool(value):
+            if isinstance(value, bool):
+                return value
+            if value is None:
+                return False
+            try:
+                if pd.isna(value):
+                    return False
+            except Exception:
+                pass
+            return str(value).strip().lower() in {"true", "1", "yes", "y"}
 
-        new_matches = working[
-            working["_alert_first_seen"].notna()
-            & (working["_alert_first_seen"] > baseline)
-        ].copy()
+        working["_alert_is_new"] = working["is_new"].apply(_as_bool) if "is_new" in working.columns else False
+        working["_alert_fetched_at"] = pd.to_datetime(working["fetched_at"], utc=True, errors="coerce") if "fetched_at" in working.columns else pd.NaT
+        working["_alert_first_seen"] = pd.to_datetime(working["first_seen"], utc=True, errors="coerce") if "first_seen" in working.columns else pd.NaT
+
+        valid_fetch_times = working["_alert_fetched_at"].dropna()
+
+        if not valid_fetch_times.empty:
+            latest_fetch = valid_fetch_times.max()
+            if latest_fetch <= baseline:
+                result.update(success=True, message="No newer HJMI data update has been detected since the last alert check.")
+                return result
+
+            new_matches = working[
+                working["_alert_is_new"]
+                & working["_alert_fetched_at"].notna()
+                & (working["_alert_fetched_at"] > baseline)
+            ].copy()
+        else:
+            new_matches = working[
+                working["_alert_first_seen"].notna()
+                & (working["_alert_first_seen"] > baseline)
+            ].copy()
 
         result["checked"] = int(len(new_matches))
 
         for _, job in new_matches.iterrows():
-            job_title = (
-                job.get("job_title_display", "")
-                or job.get("job_title", "")
-                or "Untitled Opportunity"
-            )
-
-            company = (
-                job.get("company_display", "")
-                or job.get("company", "")
-                or "Company not specified"
-            )
-
-            location = (
-                job.get("location_display", "")
-                or job.get("location", "")
-                or "Location not specified"
-            )
-
-            job_url = str(
-                job.get("job_url", "")
-                or ""
-            ).strip()
-
-            job_identifier = (
-                job_url
-                or (
-                    f"{job_title}|"
-                    f"{company}|"
-                    f"{location}"
-                )
-            )
+            job_title = job.get("job_title_display", "") or job.get("job_title", "") or "Untitled Opportunity"
+            company = job.get("company_display", "") or job.get("company", "") or "Company not specified"
+            location = job.get("location_display", "") or job.get("location", "") or "Location not specified"
+            job_url = str(job.get("job_url", "") or "").strip()
+            job_identifier = job_url or f"{job_title}|{company}|{location}"
 
             alert_result = create_job_alert(
                 job_id=job_identifier,
@@ -828,50 +660,25 @@ def sync_smart_job_alerts(recommendations):
                 company=company,
                 location=location,
                 job_url=job_url,
-                match_score=job.get(
-                    "hjmi_match_score",
-                    0,
-                ),
-                match_label=job.get(
-                    "hjmi_match_label",
-                    "",
-                ),
-                matched_skills=job.get(
-                    "hjmi_matched_skills",
-                    [],
-                ),
-                match_reasons=job.get(
-                    "hjmi_match_reasons",
-                    [],
-                ),
+                match_score=job.get("hjmi_match_score", 0),
+                match_label=job.get("hjmi_match_label", ""),
+                matched_skills=job.get("hjmi_matched_skills", []),
+                match_reasons=job.get("hjmi_match_reasons", []),
             )
-
-            if (
-                alert_result.get("success")
-                and alert_result.get("created")
-            ):
+            if alert_result.get("success") and alert_result.get("created"):
                 result["created"] += 1
 
-        # Advance the baseline only after the recommendation set has
-        # been processed, preventing repeated alerts on later reruns.
-        if not update_last_checked_at():
-            result["message"] = (
-                "Alerts were checked, but HJMI could not update "
-                "the last-check time."
-            )
+        checked_at = datetime.now(timezone.utc).isoformat()
+        if not update_last_checked_at(checked_at):
+            result["message"] = "Alerts were checked, but HJMI could not update the last-check time."
             return result
 
         result["success"] = True
-
         if result["created"] > 0:
-            result["message"] = (
-                f"{result['created']} new matching "
-                f"opportunit{'y' if result['created'] == 1 else 'ies'} "
-                "added to Smart Job Alerts."
-            )
+            n = result["created"]
+            result["message"] = f"{n} new matching opportunit{'y' if n == 1 else 'ies'} added to Smart Job Alerts."
         else:
-            result["message"] = "No new matching opportunities since the last check."
-
+            result["message"] = "The latest HJMI update contained no new jobs matching your Career Profile."
         return result
 
     except Exception as error:
