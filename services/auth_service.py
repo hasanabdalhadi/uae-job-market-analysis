@@ -15,7 +15,6 @@ from supabase import create_client, Client
 # ============================================================
 
 AUTH_COOKIE_NAME = "hjmi_refresh_token"
-
 COOKIE_EXPIRY_DAYS = 30
 
 
@@ -27,9 +26,6 @@ COOKIE_EXPIRY_DAYS = 30
 def get_cookie_manager():
     """
     Create the HJMI browser cookie manager.
-
-    The cookie is used to restore the Supabase session
-    after a browser refresh or a new Streamlit session.
     """
 
     return stx.CookieManager(
@@ -45,12 +41,12 @@ def get_supabase_client() -> Client:
     """
     Create a fresh Supabase client.
 
-    Authentication clients are intentionally not cached
-    globally because Supabase auth state is mutable and
-    must not be shared between Streamlit users.
+    Supabase authentication state must not be shared
+    globally between Streamlit users.
     """
 
     try:
+
         supabase_url = st.secrets["SUPABASE_URL"]
         supabase_key = st.secrets["SUPABASE_KEY"]
 
@@ -60,6 +56,7 @@ def get_supabase_client() -> Client:
         )
 
     except Exception as error:
+
         raise RuntimeError(
             "Supabase configuration is missing or invalid."
         ) from error
@@ -112,6 +109,7 @@ def clear_session():
         "hjmi_access_token",
         "hjmi_refresh_token",
     ]:
+
         st.session_state.pop(
             key,
             None,
@@ -126,14 +124,14 @@ def save_auth_cookie(
     refresh_token: str,
 ):
     """
-    Save the Supabase refresh token so HJMI can restore
-    authentication after a browser refresh.
+    Save the Supabase refresh token in the browser cookie.
     """
 
     if not refresh_token:
-        return
+        return False
 
     try:
+
         cookie_manager = get_cookie_manager()
 
         cookie_manager.set(
@@ -145,11 +143,19 @@ def save_auth_cookie(
                     days=COOKIE_EXPIRY_DAYS
                 )
             ),
-            key="hjmi_set_auth_cookie",
         )
 
-    except Exception:
-        pass
+        return True
+
+    except Exception as error:
+
+        # Temporary diagnostic output.
+        # Remove after persistent authentication is verified.
+        st.error(
+            f"HJMI cookie error: {error}"
+        )
+
+        return False
 
 
 def get_auth_cookie():
@@ -158,6 +164,7 @@ def get_auth_cookie():
     """
 
     try:
+
         cookie_manager = get_cookie_manager()
 
         return cookie_manager.get(
@@ -165,6 +172,7 @@ def get_auth_cookie():
         )
 
     except Exception:
+
         return None
 
 
@@ -174,15 +182,22 @@ def delete_auth_cookie():
     """
 
     try:
+
         cookie_manager = get_cookie_manager()
 
         cookie_manager.delete(
-            AUTH_COOKIE_NAME,
-            key="hjmi_delete_auth_cookie",
+            AUTH_COOKIE_NAME
         )
 
-    except Exception:
-        pass
+        return True
+
+    except Exception as error:
+
+        st.error(
+            f"HJMI cookie delete error: {error}"
+        )
+
+        return False
 
 
 # ============================================================
@@ -192,12 +207,9 @@ def delete_auth_cookie():
 def restore_session():
     """
     Restore the user's Supabase authentication session
-    from the persistent refresh token cookie.
-
-    Returns True when restoration succeeds.
+    from the persistent refresh-token cookie.
     """
 
-    # Already authenticated in this Streamlit session.
     if (
         st.session_state.get(
             "hjmi_authenticated",
@@ -213,6 +225,7 @@ def restore_session():
             "hjmi_refresh_token"
         )
     ):
+
         return True
 
     refresh_token = get_auth_cookie()
@@ -221,6 +234,7 @@ def restore_session():
         return False
 
     try:
+
         supabase = get_supabase_client()
 
         response = (
@@ -233,6 +247,7 @@ def restore_session():
             response.user is None
             or response.session is None
         ):
+
             clear_session()
             return False
 
@@ -242,7 +257,6 @@ def restore_session():
         )
 
         # Supabase may rotate the refresh token.
-        # Save the newest token back to the cookie.
         save_auth_cookie(
             response.session.refresh_token
         )
@@ -250,6 +264,7 @@ def restore_session():
         return True
 
     except Exception:
+
         clear_session()
         return False
 
@@ -273,6 +288,7 @@ def sign_up(
     full_name = full_name.strip()
 
     if not email:
+
         return {
             "success": False,
             "message": (
@@ -281,6 +297,7 @@ def sign_up(
         }
 
     if len(password) < 8:
+
         return {
             "success": False,
             "message": (
@@ -290,6 +307,7 @@ def sign_up(
         }
 
     try:
+
         response = supabase.auth.sign_up(
             {
                 "email": email,
@@ -297,15 +315,14 @@ def sign_up(
                 "options": {
                     "data": {
                         "full_name": full_name,
-                        "account_type": (
-                            "job_seeker"
-                        ),
+                        "account_type": "job_seeker",
                     }
                 },
             }
         )
 
         if response.user is None:
+
             return {
                 "success": False,
                 "message": (
@@ -325,6 +342,7 @@ def sign_up(
         }
 
     except Exception as error:
+
         return {
             "success": False,
             "message": str(error),
@@ -349,6 +367,7 @@ def sign_in(
     email = email.strip().lower()
 
     if not email or not password:
+
         return {
             "success": False,
             "message": (
@@ -358,6 +377,7 @@ def sign_in(
         }
 
     try:
+
         response = (
             supabase.auth
             .sign_in_with_password(
@@ -372,6 +392,7 @@ def sign_in(
             response.user is None
             or response.session is None
         ):
+
             return {
                 "success": False,
                 "message": (
@@ -384,9 +405,19 @@ def sign_in(
             response.session,
         )
 
-        save_auth_cookie(
+        cookie_saved = save_auth_cookie(
             response.session.refresh_token
         )
+
+        if not cookie_saved:
+
+            return {
+                "success": False,
+                "message": (
+                    "Signed in, but HJMI could not "
+                    "save the persistent session."
+                ),
+            }
 
         return {
             "success": True,
@@ -397,6 +428,7 @@ def sign_in(
         }
 
     except Exception:
+
         return {
             "success": False,
             "message": (
@@ -426,6 +458,7 @@ def sign_out():
     )
 
     try:
+
         if access_token and refresh_token:
 
             supabase = get_supabase_client()
@@ -438,6 +471,7 @@ def sign_out():
             supabase.auth.sign_out()
 
     except Exception:
+
         pass
 
     clear_session()
@@ -460,9 +494,8 @@ def is_authenticated() -> bool:
     """
     Return True when the user is authenticated.
 
-    If the current Streamlit session was lost after a
-    browser refresh, HJMI attempts to restore it using
-    the persistent Supabase refresh token.
+    If Streamlit session state is lost, HJMI attempts
+    to restore authentication from the browser cookie.
     """
 
     authenticated = bool(
