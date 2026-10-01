@@ -4,6 +4,7 @@
 # ============================================================
 
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 
 from components.theme import (
@@ -50,6 +51,109 @@ st.set_page_config(
 # ============================================================
 
 apply_theme()
+
+
+# ============================================================
+# CHART HELPERS
+# ============================================================
+
+def horizontal_bar_chart(
+    data,
+    label_col,
+    value_col,
+    height=420,
+    max_items=10,
+):
+    """Render a clean HJMI horizontal ranking chart."""
+
+    chart_data = data.copy()
+
+    if max_items:
+        chart_data = chart_data.head(max_items)
+
+    chart_data[value_col] = pd.to_numeric(
+        chart_data[value_col],
+        errors="coerce",
+    ).fillna(0)
+
+    chart_data = chart_data.sort_values(
+        value_col,
+        ascending=True,
+    )
+
+    fig = go.Figure(
+        go.Bar(
+            x=chart_data[value_col],
+            y=chart_data[label_col],
+            orientation="h",
+            text=chart_data[value_col].astype(int),
+            textposition="outside",
+            cliponaxis=False,
+            hovertemplate=(
+                "<b>%{y}</b><br>"
+                + value_col
+                + ": %{x}<extra></extra>"
+            ),
+        )
+    )
+
+    max_value = chart_data[value_col].max()
+
+    fig.update_layout(
+        height=height,
+        margin=dict(l=10, r=45, t=10, b=25),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        showlegend=False,
+        hoverlabel=dict(
+            bgcolor="#0b2631",
+            font_size=12,
+        ),
+        xaxis=dict(
+            title=value_col,
+            rangemode="tozero",
+            gridcolor="rgba(127,150,163,0.14)",
+            zeroline=False,
+            fixedrange=True,
+            range=[
+                0,
+                max(1, float(max_value) * 1.18),
+            ],
+        ),
+        yaxis=dict(
+            title="",
+            fixedrange=True,
+            automargin=True,
+        ),
+        font=dict(
+            color="#d9e3e7",
+            size=12,
+        ),
+    )
+
+    fig.update_traces(
+        marker=dict(
+            color="#d8ad57",
+            line=dict(
+                color="rgba(216,173,87,0.35)",
+                width=1,
+            ),
+        ),
+        textfont=dict(
+            color="#d9e3e7",
+        ),
+    )
+
+    st.plotly_chart(
+        fig,
+        use_container_width=True,
+        config={
+            "displayModeBar": False,
+            "scrollZoom": False,
+        },
+    )
+
+
 
 
 # ============================================================
@@ -408,21 +512,17 @@ section_header(
 )
 
 
-info_box(
-    "Role counting",
-    (
-        "HJMI currently counts exact job-title labels. Similar "
-        "titles such as Software Engineer and Software Developer "
-        "may therefore appear separately rather than being "
-        "automatically merged."
-    ),
-    "ⓘ",
-)
+with st.expander("How HJMI counts roles"):
+    st.caption(
+        "HJMI counts exact job-title labels. Similar titles such as "
+        "Software Engineer and Software Developer may therefore appear "
+        "separately rather than being automatically merged."
+    )
 
 
 top_roles = (
     role_counts
-    .head(15)
+    .head(10)
     .rename_axis("Job Role")
     .reset_index(name="Opportunities")
 )
@@ -441,11 +541,12 @@ if top_roles.empty:
 
 else:
 
-    st.bar_chart(
+    horizontal_bar_chart(
         top_roles,
-        x="Job Role",
-        y="Opportunities",
-        use_container_width=True,
+        "Job Role",
+        "Opportunities",
+        height=390,
+        max_items=10,
     )
 
 
@@ -465,7 +566,7 @@ section_header(
 
 top_companies = (
     company_counts
-    .head(15)
+    .head(10)
     .rename_axis("Company")
     .reset_index(name="Opportunities")
 )
@@ -484,11 +585,12 @@ if top_companies.empty:
 
 else:
 
-    st.bar_chart(
+    horizontal_bar_chart(
         top_companies,
-        x="Company",
-        y="Opportunities",
-        use_container_width=True,
+        "Company",
+        "Opportunities",
+        height=390,
+        max_items=10,
     )
 
 
@@ -530,24 +632,21 @@ experience_table = (
 )
 
 
-st.bar_chart(
+horizontal_bar_chart(
     experience_table,
-    x="Experience Level",
-    y="Opportunities",
-    use_container_width=True,
+    "Experience Level",
+    "Opportunities",
+    height=340,
+    max_items=None,
 )
 
 
-info_box(
-    "How experience is classified",
-    (
-        "HJMI extracts experience only when a recognizable "
-        "requirement appears in the available listing text. "
-        "Missing requirements remain Not Specified instead "
-        "of being estimated."
-    ),
-    "ⓘ",
-)
+with st.expander("How HJMI classifies experience"):
+    st.caption(
+        "HJMI extracts experience only when a recognizable requirement "
+        "appears in the available listing text. Missing requirements "
+        "remain Not Specified instead of being estimated."
+    )
 
 
 # ============================================================
@@ -566,7 +665,7 @@ section_header(
 
 top_categories = (
     category_counts
-    .head(12)
+    .head(10)
     .rename_axis("Category")
     .reset_index(name="Opportunities")
 )
@@ -585,11 +684,12 @@ if top_categories.empty:
 
 else:
 
-    st.bar_chart(
+    horizontal_bar_chart(
         top_categories,
-        x="Category",
-        y="Opportunities",
-        use_container_width=True,
+        "Category",
+        "Opportunities",
+        height=390,
+        max_items=10,
     )
 
 
@@ -607,15 +707,12 @@ section_header(
 )
 
 
-info_box(
-    "What New means",
-    (
+with st.expander("What does New mean?"):
+    st.caption(
         "New refers to when HJMI first discovered the record. "
-        "It does not necessarily represent the employer's "
-        "original publication date."
-    ),
-    "ⓘ",
-)
+        "It does not necessarily represent the employer's original "
+        "publication date."
+    )
 
 
 if new_jobs.empty:
@@ -644,11 +741,12 @@ else:
 
     if not new_role_counts.empty:
 
-        st.bar_chart(
+        horizontal_bar_chart(
             new_role_counts,
-            x="New Role",
-            y="Opportunities",
-            use_container_width=True,
+            "New Role",
+            "Opportunities",
+            height=360,
+            max_items=10,
         )
 
 
@@ -695,23 +793,21 @@ status_data = pd.DataFrame(
 )
 
 
-st.bar_chart(
+horizontal_bar_chart(
     status_data,
-    x="Status",
-    y="Records",
-    use_container_width=True,
+    "Status",
+    "Records",
+    height=230,
+    max_items=None,
 )
 
 
-info_box(
-    "Historical does not mean confirmed closed",
-    (
-        "Historical means the opportunity was retained by HJMI "
-        "but did not appear in the latest collection. This alone "
-        "does not prove that the employer closed the vacancy."
-    ),
-    "ⓘ",
-)
+with st.expander("What does Historical mean?"):
+    st.caption(
+        "Historical means the opportunity was retained by HJMI but "
+        "did not appear in the latest collection. This alone does not "
+        "prove that the employer closed the vacancy."
+    )
 
 
 # ============================================================
