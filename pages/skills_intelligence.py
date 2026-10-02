@@ -90,7 +90,7 @@ def hjmi_horizontal_bar(
     )
 
     if height is None:
-        height = max(340, 48 * len(chart_data) + 105)
+        height = max(250, 36 * len(chart_data) + 78)
 
     fig = px.bar(
         chart_data,
@@ -115,7 +115,7 @@ def hjmi_horizontal_bar(
 
     fig.update_layout(
         height=height,
-        margin=dict(l=10, r=55, t=10, b=45),
+        margin=dict(l=8, r=48, t=4, b=36),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(color="#dce7ef"),
@@ -127,7 +127,7 @@ def hjmi_horizontal_bar(
         ),
         xaxis_title=value_col,
         yaxis_title=None,
-        bargap=0.24,
+        bargap=0.30,
     )
 
     max_value = float(chart_data[value_col].max())
@@ -171,6 +171,49 @@ def hjmi_horizontal_bar(
 
 
 # ============================================================
+# DATA DISPLAY HELPERS
+# ============================================================
+
+def _normalized_value_counts(series):
+    """Group display labels case-insensitively while preserving a readable label."""
+    cleaned = series.fillna("").astype(str).str.strip()
+    cleaned = cleaned[cleaned.ne("")]
+    if cleaned.empty:
+        return pd.Series(dtype="int64")
+
+    frame = pd.DataFrame({"label": cleaned})
+    frame["key"] = frame["label"].str.casefold()
+    grouped = frame.groupby("key", sort=False).agg(
+        Opportunities=("label", "size"),
+        Label=("label", lambda values: max(values, key=lambda value: (sum(ch.isupper() for ch in value), len(value)))),
+    )
+    return (
+        grouped.set_index("Label")["Opportunities"]
+        .sort_values(ascending=False, kind="stable")
+    )
+
+
+def _jobs_with_exact_skill(jobs, selected_skill):
+    """Match the structured skill field exactly, avoiding broad text-search leakage."""
+    if jobs is None or jobs.empty or "skills" not in jobs.columns:
+        return jobs.iloc[0:0].copy()
+    wanted = str(selected_skill).strip().casefold()
+    mask = jobs["skills"].apply(
+        lambda value: wanted in {str(skill).strip().casefold() for skill in parse_skills(value)}
+    )
+    return jobs[mask].copy()
+
+
+def _location_counts(series):
+    """Keep emirate/city labels separate from country-level UAE labels."""
+    cleaned = series.fillna("").astype(str).str.strip()
+    cleaned = cleaned[cleaned.ne("")]
+    country_labels = {"united arab emirates", "uae", "u.a.e.", "u.a.e"}
+    cleaned = cleaned[~cleaned.str.casefold().isin(country_labels)]
+    return _normalized_value_counts(cleaned)
+
+
+# ============================================================
 # PAGE CONFIG
 # ============================================================
 
@@ -187,6 +230,26 @@ st.set_page_config(
 # ============================================================
 
 apply_theme()
+
+# Page-specific density pass: reduce excess vertical space without changing the global theme.
+st.markdown(
+    """
+    <style>
+    div[data-testid="stVerticalBlock"] { gap: 0.75rem; }
+    div[data-testid="stMetric"] { padding-top: 0.15rem; padding-bottom: 0.15rem; }
+    .hjmi-skill-gap {
+        border: 1px solid rgba(216,173,87,.28);
+        background: rgba(10,39,53,.62);
+        border-radius: 14px;
+        padding: 14px 16px;
+        margin: 8px 0;
+    }
+    .hjmi-skill-gap strong { color: #f2c96d; font-size: 1.02rem; }
+    .hjmi-skill-gap span { color: #91a9b9; font-size: .86rem; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 # ============================================================
@@ -582,9 +645,9 @@ else:
         with personal_cols[0]:
             market_metric(
                 "◎",
-                "Your Market Coverage",
+                "Profile Skill Presence",
                 f"{coverage:.0f}%",
-                "Share of your listed profile skills represented in the current active HJMI dataset.",
+                "Share of skills listed in your Career Profile that also appear in HJMI’s current structured active-job data.",
             )
         with personal_cols[1]:
             market_metric(
@@ -604,7 +667,7 @@ else:
         compare_left, compare_right = st.columns(2)
 
         with compare_left:
-            st.markdown("### Profile vs UAE Market")
+            st.markdown("### Your Skills vs HJMI Market Data")
             if not profile_skills:
                 st.caption("Add skills to your Career Profile to start the comparison.")
             elif shared_skills:
@@ -635,7 +698,11 @@ else:
                 )
             elif missing_skills:
                 for skill, count in missing_skills:
-                    st.markdown(f"**{skill}** — appears in {count:,} matching target-role record(s)")
+                    st.markdown(
+                        f'<div class="hjmi-skill-gap"><strong>{skill}</strong><br>'
+                        f'<span>Appears in {count:,} active target-role record(s) and is not listed in your Career Profile.</span></div>',
+                        unsafe_allow_html=True,
+                    )
                 st.caption(
                     "These are dataset gaps, not hiring requirements. Learning a skill does not guarantee a job or a higher match score."
                 )
@@ -680,9 +747,11 @@ selected_skill = st.selectbox(
 )
 
 
-skill_jobs = search_jobs(
+# Use exact membership in the structured skills field. This prevents a selected
+# skill from pulling in records through broad text matching elsewhere in a job.
+skill_jobs = _jobs_with_exact_skill(
     active_jobs,
-    skill=selected_skill,
+    selected_skill,
 )
 
 
@@ -720,12 +789,7 @@ skill_locations = (
 )
 
 
-skill_roles = (
-    skill_jobs["job_title"]
-    .replace("", pd.NA)
-    .dropna()
-    .nunique()
-)
+skill_roles = len(_normalized_value_counts(skill_jobs["job_title"]))
 
 
 skill_graduate_jobs = skill_jobs[
@@ -755,11 +819,10 @@ with skill_metric_cols[1]:
 
     market_metric(
         "📊",
-        "Active Market Share",
+        "Dataset Opportunity Share",
         f"{market_share:.1f}%",
         (
-            "Share of active HJMI opportunities currently "
-            "represented by the selected skill."
+            "Share of current active HJMI records whose structured skills include the selected skill."
         ),
     )
 
@@ -808,12 +871,7 @@ section_header(
 # TOP ROLE
 # ------------------------------------------------------------
 
-role_counts = (
-    skill_jobs["job_title"]
-    .replace("", pd.NA)
-    .dropna()
-    .value_counts()
-)
+role_counts = _normalized_value_counts(skill_jobs["job_title"])
 
 
 if not role_counts.empty:
@@ -833,12 +891,7 @@ else:
 # TOP COMPANY
 # ------------------------------------------------------------
 
-company_counts = (
-    skill_jobs["company"]
-    .replace("", pd.NA)
-    .dropna()
-    .value_counts()
-)
+company_counts = _normalized_value_counts(skill_jobs["company"])
 
 
 if not company_counts.empty:
@@ -858,12 +911,7 @@ else:
 # TOP LOCATION
 # ------------------------------------------------------------
 
-location_counts = (
-    skill_jobs["location"]
-    .replace("", pd.NA)
-    .dropna()
-    .value_counts()
-)
+location_counts = _location_counts(skill_jobs["location"])
 
 
 if not location_counts.empty:
@@ -975,7 +1023,7 @@ else:
     hjmi_horizontal_bar(
         top_skill_roles,
         "Job Role",
-        max_items=10,
+        max_items=8,
     )
 
 
@@ -1017,7 +1065,7 @@ else:
     hjmi_horizontal_bar(
         top_skill_companies,
         "Company",
-        max_items=10,
+        max_items=8,
     )
 
 
@@ -1341,7 +1389,7 @@ hjmi_horizontal_bar(
     salary_data,
     "Salary Status",
     max_items=2,
-    height=300,
+    height=240,
 )
 
 
