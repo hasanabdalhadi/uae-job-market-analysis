@@ -57,11 +57,11 @@ st.html(
     <style>
 
     .hjmi-profile-card {
-        padding: 22px;
+        padding: 18px;
         border-radius: 16px;
         border: 1px solid rgba(216, 173, 87, 0.16);
         background: rgba(9, 31, 40, 0.58);
-        margin-bottom: 20px;
+        margin-bottom: 12px;
     }
 
     .hjmi-profile-label {
@@ -86,7 +86,7 @@ st.html(
     }
 
     .hjmi-cv-card {
-        padding: 22px;
+        padding: 18px;
         border-radius: 16px;
         border: 1px solid rgba(216, 173, 87, 0.16);
         background:
@@ -95,8 +95,8 @@ st.html(
                 rgba(9, 31, 40, 0.72),
                 rgba(7, 25, 34, 0.78)
             );
-        margin-top: 14px;
-        margin-bottom: 14px;
+        margin-top: 10px;
+        margin-bottom: 10px;
     }
 
     .hjmi-cv-label {
@@ -266,7 +266,7 @@ st.progress(
 # ============================================================
 
 info_box(
-    "How HJMI Career Match works",
+    "How HJMI Profile Match works",
     (
         "Your Career Profile will be compared with technology "
         "opportunities in the HJMI UAE dataset. Jobs do not need "
@@ -447,28 +447,34 @@ with st.form(
 
 if save_profile:
 
-    target_roles = [
-        value.strip()
-        for value in
-        target_roles_text.split(",")
-        if value.strip()
-    ]
+    target_roles = merge_unique(
+        [],
+        [
+            value.strip()
+            for value in target_roles_text.split(",")
+            if value.strip()
+        ],
+    )
 
 
-    skills = [
-        value.strip()
-        for value in
-        skills_text.split(",")
-        if value.strip()
-    ]
+    skills = merge_unique(
+        [],
+        [
+            value.strip()
+            for value in skills_text.split(",")
+            if value.strip()
+        ],
+    )
 
 
-    preferred_locations = [
-        value.strip()
-        for value in
-        preferred_locations_text.split(",")
-        if value.strip()
-    ]
+    preferred_locations = merge_unique(
+        [],
+        [
+            value.strip()
+            for value in preferred_locations_text.split(",")
+            if value.strip()
+        ],
+    )
 
 
     result = save_career_profile(
@@ -576,9 +582,7 @@ if profile:
     if target_roles_value:
 
         st.write(
-            " • ".join(
-                target_roles_value
-            )
+            ", ".join(target_roles_value)
         )
 
     else:
@@ -595,9 +599,7 @@ if profile:
     if skills_value:
 
         st.write(
-            " • ".join(
-                skills_value
-            )
+            ", ".join(skills_value)
         )
 
     else:
@@ -614,9 +616,7 @@ if profile:
     if locations_value:
 
         st.write(
-            " • ".join(
-                locations_value
-            )
+            ", ".join(locations_value)
         )
 
     else:
@@ -666,6 +666,13 @@ uploaded_cv = st.file_uploader(
 
 
 if uploaded_cv is not None:
+
+    current_cv_name = uploaded_cv.name
+    previous_cv_name = st.session_state.get("hjmi_cv_file_name")
+
+    if previous_cv_name and previous_cv_name != current_cv_name:
+        st.session_state.pop("hjmi_cv_analysis", None)
+        st.session_state.pop("hjmi_cv_file_name", None)
 
     file_size = (
         len(
@@ -1236,15 +1243,21 @@ st.markdown(
 )
 
 info_box(
-    "Job Matching — Next Stage",
+    "Career Match is available",
     (
-        "HJMI will use the Career Profile you approved — including "
-        "manual information and CV-derived skills — to compare your "
-        "profile with UAE technology opportunities. Partial matches "
-        "will be included, so a job can still be relevant even when "
-        "only some of your skills overlap."
+        "HJMI can use the Career Profile you approved — including manual "
+        "information and approved CV-derived skills — to compare your "
+        "profile with structured UAE opportunity data. Results describe "
+        "profile relevance and do not predict employer interest or hiring."
     ),
     "◎",
+)
+
+st.page_link(
+    "pages/account.py",
+    label="Open My HJMI Recommendations",
+    icon="🎯",
+    use_container_width=True,
 )
 
 
