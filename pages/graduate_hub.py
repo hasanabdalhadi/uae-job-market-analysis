@@ -5,6 +5,7 @@
 
 import pandas as pd
 import streamlit as st
+import plotly.express as px
 
 from components.theme import (
     apply_theme,
@@ -34,6 +35,101 @@ from services.data_service import (
 )
 
 
+
+# ============================================================
+# GRADUATE DISPLAY HELPERS
+# ============================================================
+
+def normalized_text_counts(series):
+    cleaned = series.fillna("").astype(str).map(lambda x: " ".join(x.strip().split()))
+    cleaned = cleaned[cleaned.ne("")]
+    if cleaned.empty:
+        return pd.Series(dtype="int64")
+    frame = pd.DataFrame({"label": cleaned})
+    frame["key"] = frame["label"].str.casefold()
+    grouped = frame.groupby("key", sort=False)
+    counts = grouped.size()
+    labels = grouped["label"].agg(
+        lambda values: max(values.tolist(),
+                           key=lambda x: (sum(ch.isupper() for ch in x), len(x)))
+    )
+    return pd.Series(counts.values, index=labels.values, dtype="int64").sort_values(ascending=False)
+
+
+def exact_skill_jobs(jobs, selected_skill):
+    """Match the selected skill against structured skill tokens, not broad text search."""
+    target = str(selected_skill).strip().casefold()
+    if not target or jobs.empty:
+        return jobs.iloc[0:0].copy()
+
+    def has_skill(value):
+        if pd.isna(value):
+            return False
+        raw = str(value).strip()
+        if not raw:
+            return False
+        # HJMI skill fields may be pipe/comma/semicolon separated or list-like text.
+        cleaned = raw.replace("[", "").replace("]", "").replace("'", "").replace('"', "")
+        tokens = []
+        for part in cleaned.replace("|", ",").replace(";", ",").split(","):
+            token = part.strip().casefold()
+            if token:
+                tokens.append(token)
+        return target in tokens
+
+    if "skills" not in jobs.columns:
+        return jobs.iloc[0:0].copy()
+    return jobs[jobs["skills"].map(has_skill)].copy()
+
+
+def hjmi_horizontal_bar(data, label_col, value_col="Opportunities", *, max_items=8, height=None):
+    if data is None or data.empty:
+        return
+    chart_data = data[[label_col, value_col]].copy()
+    chart_data[value_col] = pd.to_numeric(chart_data[value_col], errors="coerce").fillna(0)
+    chart_data = chart_data[chart_data[value_col] > 0]
+    chart_data = chart_data.sort_values(value_col, ascending=False).head(max_items)
+    if chart_data.empty:
+        return
+    chart_data = chart_data.iloc[::-1]
+    max_value = float(chart_data[value_col].max())
+    if max_value <= 10:
+        tick_step = 1
+    elif max_value <= 50:
+        tick_step = 5
+    elif max_value <= 100:
+        tick_step = 10
+    elif max_value <= 250:
+        tick_step = 25
+    else:
+        tick_step = 50
+    if height is None:
+        height = max(250, min(410, 75 + len(chart_data) * 38))
+    fig = px.bar(chart_data, x=value_col, y=label_col, orientation="h",
+                 text=value_col, custom_data=[label_col, value_col])
+    fig.update_traces(
+        marker_color="#d8ad57", texttemplate="%{text:,.0f}",
+        textposition="outside", cliponaxis=False,
+        hovertemplate=f"<b>%{{customdata[0]}}</b><br>{value_col}: %{{customdata[1]:,.0f}}<extra></extra>",
+    )
+    fig.update_layout(
+        height=height, margin=dict(l=8, r=42, t=8, b=35),
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#eaf2f8"), xaxis_title=value_col,
+        yaxis_title=None, showlegend=False,
+    )
+    fig.update_xaxes(
+        rangemode="tozero", gridcolor="rgba(117,139,157,0.16)",
+        zeroline=False, tickmode="linear", tick0=0,
+        dtick=tick_step, tickformat=",d",
+    )
+    fig.update_yaxes(gridcolor="rgba(0,0,0,0)")
+    st.plotly_chart(
+        fig, use_container_width=True,
+        config={"displayModeBar": False, "displaylogo": False,
+                "responsive": True, "scrollZoom": False},
+    )
+
 # ============================================================
 # PAGE CONFIG
 # ============================================================
@@ -51,6 +147,13 @@ st.set_page_config(
 # ============================================================
 
 apply_theme()
+st.markdown(
+    """<style>
+    div[data-testid="stVerticalBlock"] { gap: 0.75rem; }
+    div[data-testid="stPlotlyChart"] { margin-bottom: 0.25rem; }
+    </style>""",
+    unsafe_allow_html=True,
+)
 
 
 # ============================================================
@@ -255,10 +358,10 @@ with metric_cols[1]:
 
     market_metric(
         "📊",
-        "Graduate Market Share",
+        "Graduate Dataset Share",
         f"{graduate_share:.1f}%",
         (
-            "Share of active HJMI opportunities currently "
+            "Share of active HJMI dataset records currently "
             "classified as graduate-friendly."
         ),
     )
@@ -340,11 +443,8 @@ section_header(
 # TOP GRADUATE ROLE
 # ------------------------------------------------------------
 
-role_counts = (
+role_counts = normalized_text_counts(
     graduate_jobs["job_title"]
-    .replace("", pd.NA)
-    .dropna()
-    .value_counts()
 )
 
 
@@ -390,11 +490,8 @@ else:
 # TOP GRADUATE COMPANY
 # ------------------------------------------------------------
 
-company_counts = (
+company_counts = normalized_text_counts(
     graduate_jobs["company"]
-    .replace("", pd.NA)
-    .dropna()
-    .value_counts()
 )
 
 
@@ -536,16 +633,16 @@ else:
 
     top_graduate_skills = (
         graduate_skill_counts
-        .head(10)
+        .head(8)
         .rename_axis("Skill")
         .reset_index(name="Opportunities")
     )
 
-    st.bar_chart(
+    hjmi_horizontal_bar(
         top_graduate_skills,
-        x="Skill",
-        y="Opportunities",
-        use_container_width=True,
+        "Skill",
+        "Opportunities",
+        max_items=8,
     )
 
 
@@ -554,7 +651,7 @@ else:
 # ============================================================
 
 section_header(
-    "Graduate Skill Gap Explorer",
+    "Graduate Skill Explorer",
     (
         "Choose a skill to see how it connects to current "
         "graduate-friendly opportunities."
@@ -576,9 +673,9 @@ if available_skills:
     )
 
 
-    skill_jobs = search_jobs(
+    skill_jobs = exact_skill_jobs(
         graduate_jobs,
-        skill=selected_skill,
+        selected_skill,
     )
 
 
@@ -633,11 +730,11 @@ if available_skills:
 
         market_metric(
             "📊",
-            "Graduate Job Share",
+            "Graduate Dataset Share",
             f"{skill_share:.1f}%",
             (
-                "Share of the current graduate-friendly "
-                "market represented by this skill."
+                "Share of current graduate-friendly HJMI "
+                "records containing this structured skill."
             ),
         )
 
@@ -713,11 +810,12 @@ if experience_counts.empty:
 
 else:
 
-    st.bar_chart(
+    hjmi_horizontal_bar(
         experience_counts,
-        x="Experience Level",
-        y="Opportunities",
-        use_container_width=True,
+        "Experience Level",
+        "Opportunities",
+        max_items=7,
+        height=300,
     )
 
 
@@ -749,7 +847,7 @@ section_header(
 
 top_companies = (
     company_counts
-    .head(10)
+    .head(8)
     .rename_axis("Company")
     .reset_index(name="Opportunities")
 )
@@ -768,11 +866,11 @@ if top_companies.empty:
 
 else:
 
-    st.bar_chart(
+    hjmi_horizontal_bar(
         top_companies,
-        x="Company",
-        y="Opportunities",
-        use_container_width=True,
+        "Company",
+        "Opportunities",
+        max_items=8,
     )
 
 
@@ -792,7 +890,7 @@ section_header(
 
 top_locations = (
     location_counts
-    .head(10)
+    .head(8)
     .rename_axis("Location")
     .reset_index(name="Opportunities")
 )
@@ -811,11 +909,11 @@ if top_locations.empty:
 
 else:
 
-    st.bar_chart(
+    hjmi_horizontal_bar(
         top_locations,
-        x="Location",
-        y="Opportunities",
-        use_container_width=True,
+        "Location",
+        "Opportunities",
+        max_items=8,
     )
 
 
@@ -894,55 +992,20 @@ else:
 # GRADUATE GUIDANCE
 # ============================================================
 
-section_header(
-    "How to Use Graduate Intelligence",
-    (
-        "HJMI is designed to help graduates investigate the "
-        "market rather than make career decisions for them."
-    ),
-    "◇",
-)
+with st.expander("How to use Graduate Intelligence", expanded=False):
+    st.markdown(
+        """
+        **Discover:** explore opportunities whose available listing text contains
+        an explicit early-career or graduate-friendly signal.
 
+        **Understand:** compare the skills and experience classifications appearing
+        across those records.
 
-guidance_cols = st.columns(3)
-
-
-with guidance_cols[0]:
-
-    insight_card(
-        "1",
-        "Discover",
-        "Opportunities",
-        (
-            "Explore jobs whose available listing information "
-            "shows an early-career or graduate-friendly signal."
-        ),
-    )
-
-
-with guidance_cols[1]:
-
-    insight_card(
-        "2",
-        "Understand",
-        "Requirements",
-        (
-            "Compare the skills and experience requirements "
-            "appearing across current graduate opportunities."
-        ),
-    )
-
-
-with guidance_cols[2]:
-
-    insight_card(
-        "3",
-        "Prepare",
-        "Your Profile",
-        (
-            "Use the market evidence as one input when deciding "
-            "which skills, roles and opportunities to investigate."
-        ),
+        **Prepare:** use this dataset evidence as one input when deciding which
+        roles, skills and opportunities to investigate. HJMI does not treat a
+        listed skill as a universal requirement or predict whether a candidate
+        will be hired.
+        """
     )
 
 
