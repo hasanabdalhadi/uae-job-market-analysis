@@ -498,12 +498,6 @@ else:
     for _, job in new_jobs_display.head(3).iterrows():
         job_card(job)
 
-    st.page_link(
-        "pages/find_jobs.py",
-        label="Explore all active opportunities",
-        icon="→",
-        use_container_width=True,
-    )
 
 st.caption(
     "'Newly Discovered' means first seen by HJMI in the latest update; "
@@ -530,7 +524,7 @@ with area_cols[0]:
         "Explore roles, companies and experience requirements in the active dataset.",
         "JOB INTELLIGENCE",
     )
-    st.page_link("pages/job_intelligence.py", label="Open", icon="→", use_container_width=True)
+    st.page_link("pages/job_intelligence.py", label="Open", icon="💼", use_container_width=True)
 
 with area_cols[1]:
     feature_card(
@@ -539,7 +533,7 @@ with area_cols[1]:
         "See which structured skills appear across current technology opportunities.",
         "SKILLS INTELLIGENCE",
     )
-    st.page_link("pages/skills_intelligence.py", label="Open", icon="→", use_container_width=True)
+    st.page_link("pages/skills_intelligence.py", label="Open", icon="⚡", use_container_width=True)
 
 with area_cols[2]:
     feature_card(
@@ -548,7 +542,7 @@ with area_cols[2]:
         "Understand how active opportunity records are represented across UAE locations.",
         "LOCATION INTELLIGENCE",
     )
-    st.page_link("pages/location_intelligence.py", label="Open", icon="→", use_container_width=True)
+    st.page_link("pages/location_intelligence.py", label="Open", icon="📍", use_container_width=True)
 
 with area_cols[3]:
     feature_card(
@@ -557,7 +551,7 @@ with area_cols[3]:
         "Review HJMI discovery history and current signals without overstating trends.",
         "MARKET TRENDS",
     )
-    st.page_link("pages/market_trends.py", label="Open", icon="→", use_container_width=True)
+    st.page_link("pages/market_trends.py", label="Open", icon="📈", use_container_width=True)
 
 
 # ============================================================
