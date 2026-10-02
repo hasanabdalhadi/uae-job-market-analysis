@@ -1,37 +1,27 @@
 # ============================================================
-# HJMI 2.0 — HOME & MARKET OVERVIEW
+# HJMI 2.0 — ABOUT & METHODOLOGY
 # Hasan Job Market Intelligence
 # ============================================================
 
-import pandas as pd
 import streamlit as st
 
 from components.theme import (
     apply_theme,
     brand,
-    hero,
     page_header,
     footer,
 )
 
 from components.ui import (
-    market_metric,
     section_header,
     info_box,
     insight_card,
-    feature_card,
-    job_card,
-    empty_state,
     data_status,
 )
 
 from services.data_service import (
     load_jobs,
-    get_active_jobs,
-    get_new_jobs,
-    get_graduate_jobs,
     get_market_metrics,
-    skill_counts,
 )
 
 
@@ -40,16 +30,11 @@ from services.data_service import (
 # ============================================================
 
 st.set_page_config(
-    page_title="HJMI | UAE Job Market Intelligence",
-    page_icon="📊",
+    page_title="About & Methodology | HJMI",
+    page_icon="ⓘ",
     layout="wide",
     initial_sidebar_state="expanded",
 )
-
-
-# ============================================================
-# DESIGN SYSTEM
-# ============================================================
 
 apply_theme()
 
@@ -57,121 +42,42 @@ st.markdown(
     """
     <style>
     .block-container {
-        padding-top: 1.4rem;
+        padding-top: 1.45rem;
         padding-bottom: 2.2rem;
         max-width: 1450px;
     }
 
     div[data-testid="stVerticalBlock"] {
-        gap: 0.70rem;
+        gap: 0.65rem;
     }
 
-    .hjmi-home-hero {
-        position: relative;
-        overflow: hidden;
-        padding: 34px 36px;
-        margin: 4px 0 12px 0;
-        border-radius: 24px;
-        border: 1px solid rgba(216,173,87,0.18);
-        background:
-            radial-gradient(circle at 88% 12%, rgba(216,173,87,0.12), transparent 30%),
-            linear-gradient(135deg, rgba(13,45,55,0.96), rgba(6,25,34,0.98));
-        box-shadow: 0 20px 55px rgba(0,0,0,0.20);
-    }
-
-    .hjmi-home-kicker {
-        color: #d8ad57;
-        font-size: 10px;
-        font-weight: 800;
-        letter-spacing: 2.2px;
-        margin-bottom: 12px;
-    }
-
-    .hjmi-home-title {
-        color: #f7f9fa;
-        font-size: clamp(32px, 4vw, 54px);
-        line-height: 1.04;
-        font-weight: 820;
-        letter-spacing: -1.7px;
-        max-width: 900px;
-    }
-
-    .hjmi-home-title span {
-        color: #e2b95e;
-    }
-
-    .hjmi-home-copy {
-        color: #a8bac6;
-        font-size: 14px;
-        line-height: 1.75;
-        max-width: 820px;
-        margin-top: 16px;
-    }
-
-    .hjmi-home-proof {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 22px;
-    }
-
-    .hjmi-home-pill {
-        color: #c9d6dd;
-        font-size: 10px;
-        font-weight: 650;
-        padding: 7px 10px;
-        border-radius: 999px;
-        border: 1px solid rgba(148,163,184,0.13);
-        background: rgba(255,255,255,0.025);
-    }
-
-    .hjmi-section-note {
-        color: #758b9d;
-        font-size: 11px;
-        line-height: 1.7;
-        margin: -3px 0 5px 0;
-    }
-
-    .hjmi-start-card {
+    .hjmi-method-card {
         height: 100%;
-        min-height: 142px;
-        padding: 18px;
-        border-radius: 17px;
+        padding: 17px 18px;
+        border-radius: 16px;
         border: 1px solid rgba(148,163,184,0.12);
-        background: linear-gradient(145deg, rgba(12,42,51,0.82), rgba(8,29,38,0.86));
+        background: linear-gradient(145deg, rgba(12,42,51,0.76), rgba(8,29,38,0.82));
     }
 
-    .hjmi-start-label {
+    .hjmi-method-step {
         color: #d8ad57;
         font-size: 9px;
         font-weight: 800;
         letter-spacing: 1.5px;
-        margin-bottom: 8px;
-    }
-
-    .hjmi-start-title {
-        color: #f2f5f6;
-        font-size: 15px;
-        font-weight: 760;
         margin-bottom: 7px;
     }
 
-    .hjmi-start-copy {
+    .hjmi-method-title {
+        color: #f3f6f7;
+        font-size: 14px;
+        font-weight: 760;
+        margin-bottom: 6px;
+    }
+
+    .hjmi-method-copy {
         color: #7f95a3;
         font-size: 10px;
         line-height: 1.65;
-    }
-
-
-    @media (max-width: 800px) {
-        .hjmi-home-hero {
-            padding: 25px 22px;
-            border-radius: 19px;
-        }
-
-        .hjmi-home-title {
-            font-size: 34px;
-        }
     }
     </style>
     """,
@@ -180,416 +86,369 @@ st.markdown(
 
 
 # ============================================================
-# LOAD MARKET DATA
+# DATA
 # ============================================================
 
 df = load_jobs()
-
-if df.empty:
-    st.markdown(
-        """
-        <div class="hjmi-home-hero">
-            <div class="hjmi-home-kicker">UAE TECHNOLOGY CAREER INTELLIGENCE</div>
-            <div class="hjmi-home-title">
-                Understand the market.<br>
-                <span>Build a stronger career.</span>
-            </div>
-            <div class="hjmi-home-copy">
-                HJMI connects UAE technology job discovery with market and
-                career intelligence in one focused platform.
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    empty_state(
-        title="Market data is currently unavailable",
-        message=(
-            "HJMI could not load the UAE technology job-market dataset. "
-            "Please check the data pipeline and try again."
-        ),
-        icon="⚠",
-    )
-    footer()
-    st.stop()
-
-
-metrics = get_market_metrics(df)
-active_jobs = get_active_jobs(df)
-new_jobs = get_new_jobs(df)
-graduate_jobs = get_graduate_jobs(active_jobs)
+metrics = get_market_metrics(df) if not df.empty else None
 
 
 # ============================================================
-# HERO
+# HEADER
 # ============================================================
 
-st.markdown(
-    """
-    <div class="hjmi-home-hero">
-        <div class="hjmi-home-kicker">HASAN JOB MARKET INTELLIGENCE • UAE</div>
-        <div class="hjmi-home-title">
-            Understand the market.<br>
-            <span>Build a stronger career.</span>
-        </div>
-        <div class="hjmi-home-copy">
-            HJMI brings UAE technology opportunities, skills, graduate
-            intelligence and personalized career tools into one platform —
-            helping you move from job searching to informed career discovery.
-        </div>
-        <div class="hjmi-home-proof">
-            <div class="hjmi-home-pill">Live market collection</div>
-            <div class="hjmi-home-pill">Career intelligence</div>
-            <div class="hjmi-home-pill">Graduate focused</div>
-            <div class="hjmi-home-pill">No invented salary data</div>
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True,
+page_header(
+    "TRANSPARENT • DATA-DRIVEN • UAE FOCUSED",
+    "About HJMI & Methodology",
+    (
+        "How Hasan Job Market Intelligence collects, structures and "
+        "interprets UAE technology opportunity data."
+    ),
 )
 
-data_status(metrics["last_update"])
+if metrics:
+    data_status(metrics["last_update"])
 
 
 # ============================================================
-# LIVE MARKET SNAPSHOT
+# ABOUT
 # ============================================================
 
 section_header(
-    "Live UAE Market Snapshot",
-    "The latest technology opportunity records currently represented by HJMI.",
-    "◈",
+    "What is HJMI?",
+    "A UAE-focused technology career and job-market intelligence platform.",
+    "H",
 )
 
-metric_cols = st.columns(4)
+info_box(
+    "Hasan Job Market Intelligence",
+    (
+        "HJMI is developed by Hasan R. H. Abdalhadi. It combines job "
+        "discovery with structured intelligence about roles, skills, "
+        "locations, experience, graduate opportunities and salary disclosure, "
+        "along with personal career tools such as profiles, recommendations, "
+        "saved opportunities, application tracking and in-app alerts."
+    ),
+    "H",
+)
 
-with metric_cols[0]:
-    market_metric(
-        "💼",
-        "Active Opportunities",
-        f'{metrics["active_jobs"]:,}',
-        "Returned in HJMI's latest market collection.",
+mission_cols = st.columns(3)
+
+with mission_cols[0]:
+    insight_card(
+        "1", "Discover", "Opportunities",
+        "Explore technology opportunities represented in HJMI's latest UAE dataset."
     )
 
-with metric_cols[1]:
-    market_metric(
-        "🆕",
-        "Newly Discovered",
-        f'{metrics["new_jobs"]:,}',
-        "First discovered by HJMI in the latest update.",
+with mission_cols[1]:
+    insight_card(
+        "2", "Understand", "The Market",
+        "Turn collected records into understandable signals about roles, skills and requirements."
     )
 
-with metric_cols[2]:
-    market_metric(
-        "🎓",
-        "Graduate Friendly",
-        f'{metrics["graduate_jobs"]:,}',
-        "Active records with an identified early-career signal.",
-    )
-
-with metric_cols[3]:
-    market_metric(
-        "🏢",
-        "Companies",
-        f'{metrics["companies"]:,}',
-        "Unique companies represented among active records.",
+with mission_cols[2]:
+    insight_card(
+        "3", "Personalize", "Your Search",
+        "Use career-profile information to compare your profile with structured HJMI job data."
     )
 
 
 # ============================================================
-# CURRENT MARKET SIGNALS
-# ============================================================
-
-def normalized_counts(series):
-    cleaned = series.fillna("").astype(str).map(lambda x: " ".join(x.strip().split()))
-    cleaned = cleaned[cleaned.ne("")]
-    if cleaned.empty:
-        return None
-    frame = cleaned.to_frame("label")
-    frame["key"] = frame["label"].str.casefold()
-    grouped = frame.groupby("key", sort=False)
-    counts = grouped.size()
-    labels = grouped["label"].agg(
-        lambda values: max(
-            values.tolist(),
-            key=lambda x: (sum(ch.isupper() for ch in x), len(x)),
-        )
-    )
-    return counts.set_axis(labels.values).sort_values(ascending=False)
-
-
-role_counts = normalized_counts(active_jobs["job_title"]) if not active_jobs.empty else None
-location_counts = normalized_counts(active_jobs["location"]) if not active_jobs.empty else None
-skills_rank = skill_counts(active_jobs)
-
-top_role = role_counts.index[0] if role_counts is not None and not role_counts.empty else "Not available"
-top_role_count = int(role_counts.iloc[0]) if role_counts is not None and not role_counts.empty else 0
-
-top_location = (
-    location_counts.index[0]
-    if location_counts is not None and not location_counts.empty
-    else "Not available"
-)
-top_location_count = (
-    int(location_counts.iloc[0])
-    if location_counts is not None and not location_counts.empty
-    else 0
-)
-
-top_skill = skills_rank.index[0] if not skills_rank.empty else "Not available"
-top_skill_count = int(skills_rank.iloc[0]) if not skills_rank.empty else 0
-
-graduate_share = (
-    len(graduate_jobs) / len(active_jobs) * 100
-    if len(active_jobs) > 0
-    else 0
-)
-
-section_header(
-    "Current Market Signals",
-    "Quick context from the latest active HJMI dataset — descriptive signals, not market forecasts.",
-    "⚡",
-)
-
-signal_cols = st.columns(4)
-
-with signal_cols[0]:
-    insight_card(
-        "💻",
-        "Most Represented Role",
-        top_role,
-        f"{top_role_count:,} active record(s) currently use this job-title label.",
-    )
-
-with signal_cols[1]:
-    insight_card(
-        "⚡",
-        "Most Identified Skill",
-        top_skill,
-        f"{top_skill_count:,} active record(s) include this identified skill.",
-    )
-
-with signal_cols[2]:
-    insight_card(
-        "📍",
-        "Leading Location",
-        top_location,
-        f"{top_location_count:,} active record(s) currently use this location label.",
-    )
-
-with signal_cols[3]:
-    insight_card(
-        "🎓",
-        "Graduate Dataset Share",
-        f"{graduate_share:.1f}%",
-        "Share of active HJMI records classified as graduate-friendly.",
-    )
-
-
-# ============================================================
-# START WITH HJMI
+# DATA SOURCE & PIPELINE
 # ============================================================
 
 section_header(
-    "Start with HJMI",
-    "Choose the path that matches what you want to do next.",
-    "→",
+    "Data Source & Pipeline",
+    "How external opportunity records become HJMI intelligence.",
+    "⚙",
 )
 
-start_cols = st.columns(3)
+info_box(
+    "Current external source: Jooble",
+    (
+        "HJMI currently uses the Jooble API as its external job-listing "
+        "source. Results depend on configured UAE technology searches, "
+        "Jooble's available coverage and HJMI's processing rules. HJMI "
+        "does not claim to contain every technology vacancy in the UAE."
+    ),
+    "↗",
+)
 
-with start_cols[0]:
-    with st.container(border=True):
+pipeline_cols = st.columns(4)
+
+pipeline = [
+    ("01", "Collect", "Request UAE technology opportunity records from the configured source."),
+    ("02", "Normalize", "Organize titles, companies, locations, dates, salary text and source fields."),
+    ("03", "Enrich", "Derive structured skills, experience and graduate-friendly signals."),
+    ("04", "Analyze", "Use the processed dataset across discovery, intelligence and career tools."),
+]
+
+for col, (step, title, copy) in zip(pipeline_cols, pipeline):
+    with col:
         st.markdown(
-            """
-            <div class="hjmi-start-label">DISCOVER</div>
-            <div class="hjmi-start-title">Find UAE Tech Opportunities</div>
-            <div class="hjmi-start-copy">
-                Search active opportunities by role, company, location,
-                skill and experience.
+            f"""
+            <div class="hjmi-method-card">
+                <div class="hjmi-method-step">{step}</div>
+                <div class="hjmi-method-title">{title}</div>
+                <div class="hjmi-method-copy">{copy}</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
-        st.page_link(
-            "pages/find_jobs.py",
-            label="Explore Jobs",
-            icon="🔎",
-            use_container_width=True,
-        )
 
-with start_cols[1]:
-    with st.container(border=True):
-        st.markdown(
-            """
-            <div class="hjmi-start-label">PERSONALIZE</div>
-            <div class="hjmi-start-title">Build Your Career Intelligence</div>
-            <div class="hjmi-start-copy">
-                Create your career profile to unlock profile matching,
-                recommendations and your personal HJMI workspace.
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.page_link(
-            "pages/career_profile.py",
-            label="Build Career Profile",
-            icon="🎯",
-            use_container_width=True,
-        )
-
-with start_cols[2]:
-    with st.container(border=True):
-        st.markdown(
-            """
-            <div class="hjmi-start-label">EARLY CAREER</div>
-            <div class="hjmi-start-title">Explore Graduate Intelligence</div>
-            <div class="hjmi-start-copy">
-                Focus on explicitly identified graduate-friendly opportunities,
-                skills, experience and employers.
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.page_link(
-            "pages/graduate_hub.py",
-            label="Open Graduate Hub",
-            icon="🎓",
-            use_container_width=True,
-        )
-
-
-# ============================================================
-# NEW OPPORTUNITIES — COMPACT PREVIEW
-# ============================================================
-
-st.markdown("<div style='height:2px'></div>", unsafe_allow_html=True)
-
-section_header(
-    "Latest Discoveries",
-    "A small preview of opportunities first discovered by HJMI in the latest update.",
-    "🆕",
-)
-
-if new_jobs.empty:
-    empty_state(
-        title="No newly discovered opportunities in this update",
-        message=(
-            "No record in the latest collection was new to HJMI's existing dataset. "
-            "Active opportunities remain available in Find Jobs."
-        ),
-        icon="✓",
-    )
-else:
-    new_jobs_display = new_jobs.copy()
-
-    if "first_seen" in new_jobs_display.columns:
-        new_jobs_display["_sort_date"] = pd.to_datetime(
-            new_jobs_display["first_seen"],
-            errors="coerce",
-            utc=True,
-        )
-        new_jobs_display = new_jobs_display.sort_values(
-            "_sort_date",
-            ascending=False,
-            na_position="last",
-        )
-
-    for _, job in new_jobs_display.head(3).iterrows():
-        job_card(job)
-
-    st.page_link(
-        "pages/find_jobs.py",
-        label="Explore all active opportunities",
-        icon="🔎",
-        use_container_width=True,
-    )
-
-st.caption(
-    "'Newly Discovered' means first seen by HJMI in the latest update; "
-    "it does not necessarily mean the employer posted the vacancy that day."
+info_box(
+    "Automated updates",
+    (
+        "A scheduled GitHub Actions workflow retrieves current records, "
+        "runs HJMI's preparation pipeline, validates the generated dataset "
+        "and updates the repository when the data changes. The workflow is "
+        "configured to run daily, although external API or workflow issues "
+        "can affect individual updates."
+    ),
+    "↻",
 )
 
 
 # ============================================================
-# PLATFORM INTELLIGENCE — COMPACT
+# DEFINITIONS
 # ============================================================
 
 section_header(
-    "Explore Market Intelligence",
-    "Go deeper into the parts of the UAE technology market that matter to your search.",
+    "Core Data Definitions",
+    "The most important labels to understand when reading HJMI.",
     "◇",
 )
 
-area_cols = st.columns(4)
+status_cols = st.columns(3)
 
-with area_cols[0]:
-    feature_card(
-        "💼",
-        "Jobs",
-        "Explore roles, companies and experience requirements in the active dataset.",
-        "JOB INTELLIGENCE",
+with status_cols[0]:
+    insight_card(
+        "●", "Active", "Latest Collection",
+        "The opportunity was returned in HJMI's latest collection."
     )
-    st.page_link("pages/job_intelligence.py", label="Open", icon="→", use_container_width=True)
 
-with area_cols[1]:
-    feature_card(
-        "⚡",
-        "Skills",
-        "See which structured skills appear across current technology opportunities.",
-        "SKILLS INTELLIGENCE",
+with status_cols[1]:
+    insight_card(
+        "✦", "New", "First Discovered",
+        "HJMI first discovered the opportunity during the latest data update."
     )
-    st.page_link("pages/skills_intelligence.py", label="Open", icon="→", use_container_width=True)
 
-with area_cols[2]:
-    feature_card(
-        "📍",
-        "Locations",
-        "Understand how active opportunity records are represented across UAE locations.",
-        "LOCATION INTELLIGENCE",
+with status_cols[2]:
+    insight_card(
+        "◷", "Historical", "Previously Observed",
+        "The record is retained by HJMI but was not returned in the latest collection."
     )
-    st.page_link("pages/location_intelligence.py", label="Open", icon="→", use_container_width=True)
 
-with area_cols[3]:
-    feature_card(
-        "📈",
-        "Trends",
-        "Review HJMI discovery history and current signals without overstating trends.",
-        "MARKET TRENDS",
-    )
-    st.page_link("pages/market_trends.py", label="Open", icon="→", use_container_width=True)
+info_box(
+    "Observation states — not employer confirmations",
+    (
+        "Active does not independently guarantee that an employer is still "
+        "accepting applications. Historical does not prove that a vacancy "
+        "has closed. New means new to HJMI, not necessarily newly published "
+        "by the employer."
+    ),
+    "ⓘ",
+)
 
 
 # ============================================================
-# TRUST & METHODOLOGY
+# CLASSIFICATION METHODS
 # ============================================================
 
-with st.expander("How HJMI interprets its data", expanded=False):
+section_header(
+    "How HJMI Interprets Job Data",
+    "Structured rules used to avoid unsupported assumptions.",
+    "⚡",
+)
+
+method_tabs = st.tabs(
+    ["Experience", "Graduate Friendly", "Skills", "Salary", "Market Trends"]
+)
+
+with method_tabs[0]:
     st.markdown(
         """
-        **Active** means the opportunity was returned in HJMI's latest collection;
-        it is not an independent confirmation that the employer still has the
-        vacancy open.
+        HJMI looks for recognizable experience signals in the available
+        job title and description and organizes them into descriptive
+        categories such as **Fresh Graduate / Entry Level**, **0–1 Year**,
+        **1–2 Years**, **2–3 Years**, **3–5 Years**, **5+ Years** and
+        **Not Specified**.
 
-        **Newly Discovered** means HJMI first saw the record during the latest
-        update; it does not necessarily mean the employer posted it that day.
-
-        **Historical** means the record is retained by HJMI but was not returned
-        in the latest collection; this alone does not prove that the vacancy closed.
-
-        **Graduate Friendly** is assigned only when available listing text contains
-        an early-career signal. Missing experience information is not automatically
-        treated as graduate-friendly.
-
-        HJMI does not invent missing salary values.
+        If no recognizable experience requirement is found, HJMI keeps the
+        record as **Not Specified** rather than estimating a requirement.
         """
     )
-    st.page_link(
-        "pages/about.py",
-        label="Read About & Methodology",
-        icon="ℹ️",
-        use_container_width=True,
+
+with method_tabs[1]:
+    st.markdown(
+        """
+        HJMI classifies a listing as graduate-friendly only when the
+        available text contains an explicit early-career signal such as
+        **fresh graduate**, **entry level**, **graduate trainee**,
+        **no experience required**, or an experience requirement beginning
+        at zero.
+
+        A listing that is not classified as graduate-friendly may still
+        accept graduates. Missing experience information alone is not enough
+        for HJMI to classify it as graduate-friendly.
+        """
     )
 
+with method_tabs[2]:
+    st.markdown(
+        """
+        HJMI extracts and organizes identifiable technology skills from
+        processed opportunity records. Structured skill fields power skill
+        intelligence, job matching and profile comparisons.
+
+        A technology can still be relevant even when it is not present in
+        HJMI's structured skill field, and different listings may use
+        different names for similar technologies.
+        """
+    )
+
+with method_tabs[3]:
+    st.markdown(
+        """
+        HJMI treats salary as disclosed only when salary information is
+        available in the collected source record. Missing salary is **not
+        estimated**.
+
+        The interface may display **"To be discussed after the interview"**
+        as an HJMI presentation convention for missing salary information;
+        this is not presented as employer-provided wording.
+
+        HJMI avoids unsupported market averages or medians while source
+        salary text is not normalized into directly comparable values.
+        """
+    )
+
+with method_tabs[4]:
+    st.markdown(
+        """
+        A single current snapshot is not treated as evidence that a role,
+        skill, location or graduate market is rising or falling. Reliable
+        trend claims require comparable observations collected consistently
+        over time.
+
+        HJMI retains fields such as first-seen, last-seen and opportunity
+        status so its historical analysis can become stronger as the dataset
+        grows.
+        """
+    )
+
+
+# ============================================================
+# CAREER INTELLIGENCE
+# ============================================================
+
+section_header(
+    "Personal Career Intelligence",
+    "What HJMI personalization means — and what it does not mean.",
+    "🎯",
+)
+
+career_cols = st.columns(3)
+
+with career_cols[0]:
+    insight_card(
+        "⚡", "Profile Match", "Structured Overlap",
+        "Compares profile skills, role, specialization, experience and location with HJMI job data."
+    )
+
+with career_cols[1]:
+    insight_card(
+        "◇", "Recommendations", "Relevant Records",
+        "Surfaces opportunities whose structured data overlaps with the user's career profile."
+    )
+
+with career_cols[2]:
+    insight_card(
+        "!", "Not a Hiring Score", "No Outcome Prediction",
+        "HJMI match results do not represent employer interest, acceptance probability or hiring likelihood."
+    )
+
+
+# ============================================================
+# INTEGRITY & LIMITATIONS
+# ============================================================
+
+section_header(
+    "Data Integrity & Limitations",
+    "Important context for interpreting HJMI analysis responsibly.",
+    "✓",
+)
+
+integrity_cols = st.columns(3)
+
+with integrity_cols[0]:
+    insight_card(
+        "✓", "No Invented", "Job Facts",
+        "Missing salary, experience or other information is not silently replaced with unsupported values."
+    )
+
+with integrity_cols[1]:
+    insight_card(
+        "✓", "Clear", "Definitions",
+        "HJMI documents the meaning of important platform labels and classifications."
+    )
+
+with integrity_cols[2]:
+    insight_card(
+        "✓", "Visible", "Limitations",
+        "Dataset observations are separated from conclusions that would require broader evidence."
+    )
+
+with st.expander("View platform limitations", expanded=False):
+    st.markdown(
+        """
+        - HJMI does not contain every technology job in the UAE.
+        - External source coverage and behavior can change.
+        - Search configuration affects which opportunities are returned.
+        - Job descriptions can be incomplete or inconsistent.
+        - Company, role and location naming can vary across source records.
+        - Structured skills depend on what HJMI can identify from available data.
+        - Salary information is frequently missing or inconsistently formatted.
+        - Active and Historical are HJMI observation states, not employer confirmations.
+        - Long-term trend analysis becomes more meaningful as comparable historical data grows.
+        """
+    )
+
+
+# ============================================================
+# AUTHOR / USE
+# ============================================================
+
+section_header(
+    "Project & Use",
+    "Independent development, transparent interpretation and responsible use.",
+    "H",
+)
+
+author_cols = st.columns(2)
+
+with author_cols[0]:
+    info_box(
+        "Project Author",
+        (
+            "HJMI is an independent project by Hasan R. H. Abdalhadi, "
+            "a Computer Science Engineering student at BITS Pilani – Dubai Campus. "
+            "The project combines software development, data analysis, "
+            "information systems and digital product development."
+        ),
+        "H",
+    )
+
+with author_cols[1]:
+    info_box(
+        "Verify before applying",
+        (
+            "Users should review the original opportunity source and employer "
+            "information before applying or making a career decision. HJMI "
+            "does not guarantee vacancy availability, employer decisions, "
+            "salary, interviews or hiring outcomes."
+        ),
+        "ⓘ",
+    )
 
 footer()
