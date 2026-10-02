@@ -5,6 +5,7 @@
 
 import pandas as pd
 import streamlit as st
+import plotly.express as px
 
 from components.theme import (
     apply_theme,
@@ -32,6 +33,97 @@ from services.data_service import (
 )
 
 
+
+# ============================================================
+# LOCATION NORMALIZATION + CHART HELPERS
+# ============================================================
+
+UAE_EMIRATE_ALIASES = {
+    "dubai": "Dubai", "abu dhabi": "Abu Dhabi", "abu-dhabi": "Abu Dhabi",
+    "abudhabi": "Abu Dhabi", "sharjah": "Sharjah", "ajman": "Ajman",
+    "umm al quwain": "Umm Al Quwain", "umm al-quwain": "Umm Al Quwain",
+    "umm al qaiwain": "Umm Al Quwain", "uaq": "Umm Al Quwain",
+    "ras al khaimah": "Ras Al Khaimah", "ras al-khaimah": "Ras Al Khaimah",
+    "rak": "Ras Al Khaimah", "fujairah": "Fujairah",
+    "al ain": "Al Ain", "al-ain": "Al Ain",
+}
+UAE_WIDE_LABELS = {"uae", "u.a.e", "u.a.e.", "united arab emirates",
+                   "united arab emirate", "emirates"}
+
+def normalize_location_label(value):
+    if pd.isna(value):
+        return ""
+    raw = " ".join(str(value).strip().split())
+    if not raw:
+        return ""
+    lowered = " ".join(raw.lower().replace(",", " ").split())
+    if lowered in UAE_WIDE_LABELS:
+        return "UAE-wide / Unspecified"
+    stripped = lowered
+    for suffix in (" united arab emirates", " uae", " u.a.e.", " u.a.e"):
+        if stripped.endswith(suffix):
+            stripped = stripped[:-len(suffix)].strip(" ,-")
+    if stripped in UAE_EMIRATE_ALIASES:
+        return UAE_EMIRATE_ALIASES[stripped]
+    if lowered in UAE_EMIRATE_ALIASES:
+        return UAE_EMIRATE_ALIASES[lowered]
+    return raw
+
+def normalized_text_counts(series):
+    cleaned = series.fillna("").astype(str).map(lambda x: " ".join(x.strip().split()))
+    cleaned = cleaned[cleaned.ne("")]
+    if cleaned.empty:
+        return pd.Series(dtype="int64")
+    frame = pd.DataFrame({"label": cleaned})
+    frame["key"] = frame["label"].str.casefold()
+    grouped = frame.groupby("key", sort=False)
+    counts = grouped.size()
+    labels = grouped["label"].agg(
+        lambda values: max(values.tolist(),
+                           key=lambda x: (sum(ch.isupper() for ch in x), len(x)))
+    )
+    return pd.Series(counts.values, index=labels.values, dtype="int64").sort_values(ascending=False)
+
+def hjmi_horizontal_bar(data, label_col, value_col="Opportunities", *, max_items=8, height=None):
+    if data is None or data.empty:
+        return
+    chart_data = data[[label_col, value_col]].copy()
+    chart_data[value_col] = pd.to_numeric(chart_data[value_col], errors="coerce").fillna(0)
+    chart_data = chart_data[chart_data[value_col] > 0]
+    chart_data = chart_data.sort_values(value_col, ascending=False).head(max_items)
+    if chart_data.empty:
+        return
+    chart_data = chart_data.iloc[::-1]
+    max_value = float(chart_data[value_col].max())
+    if max_value <= 10:
+        tick_step = 1
+    elif max_value <= 50:
+        tick_step = 5
+    elif max_value <= 100:
+        tick_step = 10
+    elif max_value <= 250:
+        tick_step = 25
+    else:
+        tick_step = 50
+    if height is None:
+        height = max(260, min(430, 80 + len(chart_data) * 38))
+    fig = px.bar(chart_data, x=value_col, y=label_col, orientation="h",
+                 text=value_col, custom_data=[label_col, value_col])
+    fig.update_traces(marker_color="#d8ad57", texttemplate="%{text:,.0f}",
+                      textposition="outside", cliponaxis=False,
+                      hovertemplate=f"<b>%{{customdata[0]}}</b><br>{value_col}: %{{customdata[1]:,.0f}}<extra></extra>")
+    fig.update_layout(height=height, margin=dict(l=8, r=42, t=8, b=35),
+                      paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                      font=dict(color="#eaf2f8"), xaxis_title=value_col,
+                      yaxis_title=None, showlegend=False)
+    fig.update_xaxes(rangemode="tozero", gridcolor="rgba(117,139,157,0.16)",
+                     zeroline=False, tickmode="linear", tick0=0,
+                     dtick=tick_step, tickformat=",d")
+    fig.update_yaxes(gridcolor="rgba(0,0,0,0)")
+    st.plotly_chart(fig, use_container_width=True,
+                    config={"displayModeBar": False, "displaylogo": False,
+                            "responsive": True, "scrollZoom": False})
+
 # ============================================================
 # PAGE CONFIG
 # ============================================================
@@ -49,6 +141,13 @@ st.set_page_config(
 # ============================================================
 
 apply_theme()
+st.markdown(
+    """<style>
+    div[data-testid="stVerticalBlock"] { gap: 0.75rem; }
+    div[data-testid="stPlotlyChart"] { margin-bottom: 0.25rem; }
+    </style>""",
+    unsafe_allow_html=True,
+)
 
 
 # ============================================================
@@ -129,19 +228,13 @@ location_series = (
     active_jobs["location"]
     .fillna("")
     .astype(str)
-    .str.strip()
+    .map(normalize_location_label)
 )
 
+location_jobs = active_jobs[location_series.ne("")].copy()
+location_jobs["location_display"] = location_series.loc[location_jobs.index]
 
-location_jobs = active_jobs[
-    location_series.ne("")
-].copy()
-
-
-location_counts = (
-    location_jobs["location"]
-    .value_counts()
-)
+location_counts = location_jobs["location_display"].value_counts()
 
 
 # ============================================================
@@ -168,11 +261,10 @@ data_status(
 info_box(
     "How to read Location Intelligence",
     (
-        "Locations are based on the labels available in the "
-        "collected job records. Different labels may refer to "
-        "similar geographic areas, so HJMI treats the source "
-        "location text as market data rather than silently "
-        "guessing or changing the employer's location."
+        "HJMI standardizes only clear UAE location variants, such as "
+        "country suffixes and obvious emirate-name aliases. Broad labels "
+        "such as United Arab Emirates are shown as UAE-wide / Unspecified. "
+        "Ambiguous districts or place names are preserved rather than guessed."
     ),
     "ⓘ",
 )
@@ -201,7 +293,7 @@ else:
 
 
 unique_locations = (
-    location_jobs["location"]
+    location_jobs["location_display"]
     .nunique()
 )
 
@@ -308,18 +400,13 @@ if location_counts.empty:
 
 top_locations = (
     location_counts
-    .head(15)
+    .head(10)
     .rename_axis("Location")
     .reset_index(name="Opportunities")
 )
 
 
-st.bar_chart(
-    top_locations,
-    x="Location",
-    y="Opportunities",
-    use_container_width=True,
-)
+hjmi_horizontal_bar(top_locations, "Location", "Opportunities", max_items=10)
 
 
 info_box(
@@ -360,9 +447,8 @@ selected_location = st.selectbox(
 )
 
 
-selected_jobs = active_jobs[
-    active_jobs["location"]
-    == selected_location
+selected_jobs = location_jobs[
+    location_jobs["location_display"] == selected_location
 ].copy()
 
 
@@ -434,11 +520,11 @@ with location_metric_cols[1]:
 
     market_metric(
         "📊",
-        "Active Market Share",
+        "Dataset Opportunity Share",
         f"{selected_share:.1f}%",
         (
-            "Share of all active HJMI opportunities "
-            "using this location label."
+            "Share of active HJMI dataset records "
+            "represented by this normalized location."
         ),
     )
 
@@ -483,20 +569,8 @@ section_header(
 )
 
 
-role_counts = (
-    selected_jobs["job_title"]
-    .replace("", pd.NA)
-    .dropna()
-    .value_counts()
-)
-
-
-company_counts = (
-    selected_jobs["company"]
-    .replace("", pd.NA)
-    .dropna()
-    .value_counts()
-)
+role_counts = normalized_text_counts(selected_jobs["job_title"])
+company_counts = normalized_text_counts(selected_jobs["company"])
 
 
 selected_skill_counts = skill_counts(
@@ -643,7 +717,7 @@ section_header(
 
 top_roles = (
     role_counts
-    .head(12)
+    .head(8)
     .rename_axis("Job Role")
     .reset_index(name="Opportunities")
 )
@@ -662,12 +736,7 @@ if top_roles.empty:
 
 else:
 
-    st.bar_chart(
-        top_roles,
-        x="Job Role",
-        y="Opportunities",
-        use_container_width=True,
-    )
+    hjmi_horizontal_bar(top_roles, "Job Role", "Opportunities", max_items=8)
 
 
 # ============================================================
@@ -686,7 +755,7 @@ section_header(
 
 top_skills = (
     selected_skill_counts
-    .head(12)
+    .head(8)
     .rename_axis("Skill")
     .reset_index(name="Opportunities")
 )
@@ -705,12 +774,7 @@ if top_skills.empty:
 
 else:
 
-    st.bar_chart(
-        top_skills,
-        x="Skill",
-        y="Opportunities",
-        use_container_width=True,
-    )
+    hjmi_horizontal_bar(top_skills, "Skill", "Opportunities", max_items=8)
 
 
 # ============================================================
@@ -729,7 +793,7 @@ section_header(
 
 top_companies = (
     company_counts
-    .head(12)
+    .head(8)
     .rename_axis("Company")
     .reset_index(name="Opportunities")
 )
@@ -748,12 +812,7 @@ if top_companies.empty:
 
 else:
 
-    st.bar_chart(
-        top_companies,
-        x="Company",
-        y="Opportunities",
-        use_container_width=True,
-    )
+    hjmi_horizontal_bar(top_companies, "Company", "Opportunities", max_items=8)
 
 
 # ============================================================
@@ -794,12 +853,7 @@ experience_data = (
 )
 
 
-st.bar_chart(
-    experience_data,
-    x="Experience Level",
-    y="Opportunities",
-    use_container_width=True,
-)
+hjmi_horizontal_bar(experience_data, "Experience Level", "Opportunities", max_items=7, height=300)
 
 
 info_box(
@@ -922,12 +976,7 @@ else:
         )
 
 
-        st.bar_chart(
-            graduate_skills_df,
-            x="Skill",
-            y="Graduate Opportunities",
-            use_container_width=True,
-        )
+        hjmi_horizontal_bar(graduate_skills_df, "Skill", "Graduate Opportunities", max_items=8)
 
 
 # ============================================================
@@ -964,12 +1013,7 @@ salary_data = pd.DataFrame(
 )
 
 
-st.bar_chart(
-    salary_data,
-    x="Salary Status",
-    y="Opportunities",
-    use_container_width=True,
-)
+hjmi_horizontal_bar(salary_data, "Salary Status", "Opportunities", max_items=2, height=260)
 
 
 info_box(
@@ -1073,11 +1117,10 @@ section_header(
 info_box(
     "Important limitation",
     (
-        "Location labels can vary between listings. A record may "
-        "name a city, emirate, district or broader UAE location. "
-        "HJMI currently preserves these labels rather than "
-        "automatically merging locations that may not be exactly "
-        "equivalent."
+        "Location labels can vary between listings. HJMI normalizes only "
+        "clear UAE variants and country suffixes. Broad UAE-only records are "
+        "kept as UAE-wide / Unspecified, while ambiguous districts and place "
+        "names remain separate so the platform does not invent geography."
     ),
     "ⓘ",
 )
