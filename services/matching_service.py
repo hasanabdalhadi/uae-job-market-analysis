@@ -517,8 +517,8 @@ def match_experience(
             "match": True,
             "known": True,
             "label": (
-                "Profile meets or exceeds "
-                "experience signal"
+                "Profile experience is at or above "
+                "the listed experience signal"
             ),
         }
 
@@ -526,7 +526,7 @@ def match_experience(
         "match": False,
         "known": True,
         "label": (
-            "Job may request more experience"
+            "Listed experience is above profile level"
         ),
     }
 
@@ -639,24 +639,24 @@ def build_match_reasons(
 
     if matched_roles:
         reasons.append(
-            "target role alignment"
+            "target role overlap"
         )
 
     if specialization_match:
         reasons.append(
-            "specialization alignment"
+            "specialization overlap"
         )
 
     if experience_result.get(
         "match"
     ):
         reasons.append(
-            "experience alignment"
+            "experience-level alignment"
         )
 
     if matched_locations:
         reasons.append(
-            "preferred location"
+            "preferred-location overlap"
         )
 
     return reasons
@@ -862,6 +862,11 @@ def match_job(
             )
         ),
         "match_reasons": reasons,
+        "match_interpretation": (
+            "HJMI profile-to-job data overlap. "
+            "This is not an employer assessment, hiring probability, "
+            "or prediction of application outcome."
+        ),
     }
 
 
@@ -969,6 +974,9 @@ def get_recommended_jobs(
                 ),
                 "hjmi_match_reasons": (
                     match["match_reasons"]
+                ),
+                "hjmi_match_interpretation": (
+                    match["match_interpretation"]
                 ),
             }
         )
