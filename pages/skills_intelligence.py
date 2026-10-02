@@ -121,11 +121,27 @@ def hjmi_horizontal_bar(
         bargap=0.24,
     )
 
+    max_value = float(chart_data[value_col].max())
+
+    if max_value <= 10:
+        tick_step = 1
+    elif max_value <= 50:
+        tick_step = 5
+    elif max_value <= 100:
+        tick_step = 10
+    elif max_value <= 250:
+        tick_step = 25
+    else:
+        tick_step = 50
+
     fig.update_xaxes(
         rangemode="tozero",
         gridcolor="rgba(120,145,160,0.18)",
         zeroline=False,
-        tickformat="d",
+        tickmode="linear",
+        tick0=0,
+        dtick=tick_step,
+        tickformat=",d",
     )
 
     fig.update_yaxes(
@@ -137,8 +153,10 @@ def hjmi_horizontal_bar(
         fig,
         use_container_width=True,
         config={
+            "displayModeBar": False,
             "displaylogo": False,
             "responsive": True,
+            "scrollZoom": False,
         },
     )
 
