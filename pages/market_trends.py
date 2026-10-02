@@ -5,6 +5,7 @@
 
 import pandas as pd
 import streamlit as st
+import plotly.express as px
 
 from components.theme import (
     apply_theme,
@@ -35,6 +36,97 @@ from services.data_service import (
 )
 
 
+
+# ============================================================
+# TREND DISPLAY HELPERS
+# ============================================================
+
+def hjmi_horizontal_bar(data, label_col, value_col, *, max_items=8, height=None):
+    """Compact count chart for current HJMI signals."""
+    if data is None or data.empty:
+        return
+    chart_data = data[[label_col, value_col]].copy()
+    chart_data[value_col] = pd.to_numeric(chart_data[value_col], errors="coerce").fillna(0)
+    chart_data = chart_data[chart_data[value_col] > 0]
+    chart_data = chart_data.sort_values(value_col, ascending=False).head(max_items)
+    if chart_data.empty:
+        return
+    chart_data = chart_data.iloc[::-1]
+    max_value = float(chart_data[value_col].max())
+    if max_value <= 10:
+        tick_step = 1
+    elif max_value <= 50:
+        tick_step = 5
+    elif max_value <= 100:
+        tick_step = 10
+    elif max_value <= 250:
+        tick_step = 25
+    else:
+        tick_step = 50
+    if height is None:
+        height = max(250, min(410, 75 + len(chart_data) * 38))
+    fig = px.bar(chart_data, x=value_col, y=label_col, orientation="h",
+                 text=value_col, custom_data=[label_col, value_col])
+    fig.update_traces(
+        marker_color="#d8ad57", texttemplate="%{text:,.0f}",
+        textposition="outside", cliponaxis=False,
+        hovertemplate=f"<b>%{{customdata[0]}}</b><br>{value_col}: %{{customdata[1]:,.0f}}<extra></extra>",
+    )
+    fig.update_layout(
+        height=height, margin=dict(l=8, r=42, t=8, b=35),
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#eaf2f8"), xaxis_title=value_col,
+        yaxis_title=None, showlegend=False,
+    )
+    fig.update_xaxes(
+        rangemode="tozero", gridcolor="rgba(117,139,157,0.16)",
+        zeroline=False, tickmode="linear", tick0=0,
+        dtick=tick_step, tickformat=",d",
+    )
+    fig.update_yaxes(gridcolor="rgba(0,0,0,0)")
+    st.plotly_chart(
+        fig, use_container_width=True,
+        config={"displayModeBar": False, "displaylogo": False,
+                "responsive": True, "scrollZoom": False},
+    )
+
+
+def hjmi_discovery_timeline(data):
+    """Timeline of HJMI first-discovery events; not employer posting volume."""
+    if data is None or data.empty:
+        return
+    chart_data = data.copy()
+    chart_data["Observation_Date"] = pd.to_datetime(chart_data["Observation_Date"])
+    fig = px.line(
+        chart_data,
+        x="Observation_Date",
+        y="Jobs First Discovered",
+        markers=True,
+        custom_data=["Jobs First Discovered"],
+    )
+    fig.update_traces(
+        line_color="#d8ad57",
+        marker_color="#d8ad57",
+        hovertemplate="<b>%{x|%d %b %Y}</b><br>First discovered: %{customdata[0]:,.0f}<extra></extra>",
+    )
+    fig.update_layout(
+        height=330, margin=dict(l=8, r=20, t=8, b=35),
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#eaf2f8"),
+        xaxis_title=None, yaxis_title="Jobs First Discovered",
+        showlegend=False,
+    )
+    fig.update_xaxes(gridcolor="rgba(117,139,157,0.12)")
+    fig.update_yaxes(
+        rangemode="tozero", gridcolor="rgba(117,139,157,0.16)",
+        tickformat=",d", dtick=1 if chart_data["Jobs First Discovered"].max() <= 10 else None,
+    )
+    st.plotly_chart(
+        fig, use_container_width=True,
+        config={"displayModeBar": False, "displaylogo": False,
+                "responsive": True, "scrollZoom": False},
+    )
+
 # ============================================================
 # PAGE CONFIG
 # ============================================================
@@ -52,6 +144,13 @@ st.set_page_config(
 # ============================================================
 
 apply_theme()
+st.markdown(
+    """<style>
+    div[data-testid="stVerticalBlock"] { gap: 0.75rem; }
+    div[data-testid="stPlotlyChart"] { margin-bottom: 0.25rem; }
+    </style>""",
+    unsafe_allow_html=True,
+)
 
 
 # ============================================================
@@ -249,10 +348,11 @@ with metric_cols[3]:
 # ============================================================
 
 section_header(
-    "HJMI Observation History",
+    "HJMI Discovery History",
     (
-        "When opportunities were first discovered by HJMI "
-        "across the historical records currently retained."
+        "Actual first-seen observations retained by HJMI across "
+        "the dataset history. This is platform discovery activity, "
+        "not employer posting volume."
     ),
     "📅",
 )
@@ -291,12 +391,7 @@ else:
     )
 
 
-    st.line_chart(
-        first_seen_daily,
-        x="Observation_Date",
-        y="Jobs First Discovered",
-        use_container_width=True,
-    )
+    hjmi_discovery_timeline(first_seen_daily)
 
 
     info_box(
@@ -436,11 +531,12 @@ status_data = pd.DataFrame(
 )
 
 
-st.bar_chart(
+hjmi_horizontal_bar(
     status_data,
-    x="Record Status",
-    y="Records",
-    use_container_width=True,
+    "Record Status",
+    "Records",
+    max_items=2,
+    height=250,
 )
 
 
@@ -530,7 +626,7 @@ else:
 # ============================================================
 
 section_header(
-    "Current Skill Signals",
+    "Current Skill Snapshot",
     (
         "Skills most frequently identified among active "
         "HJMI technology opportunities."
@@ -559,7 +655,7 @@ else:
 
     current_skills = (
         active_skill_counts
-        .head(12)
+        .head(8)
         .rename_axis("Skill")
         .reset_index(
             name="Active Opportunities"
@@ -567,11 +663,11 @@ else:
     )
 
 
-    st.bar_chart(
+    hjmi_horizontal_bar(
         current_skills,
-        x="Skill",
-        y="Active Opportunities",
-        use_container_width=True,
+        "Skill",
+        "Active Opportunities",
+        max_items=8,
     )
 
 
@@ -592,7 +688,7 @@ else:
 # ============================================================
 
 section_header(
-    "Current Location Signals",
+    "Current Location Snapshot",
     (
         "Location labels most represented among active "
         "technology opportunities."
@@ -606,7 +702,7 @@ location_counts = (
     .replace("", pd.NA)
     .dropna()
     .value_counts()
-    .head(12)
+    .head(8)
     .rename_axis("Location")
     .reset_index(
         name="Active Opportunities"
@@ -627,11 +723,11 @@ if location_counts.empty:
 
 else:
 
-    st.bar_chart(
+    hjmi_horizontal_bar(
         location_counts,
-        x="Location",
-        y="Active Opportunities",
-        use_container_width=True,
+        "Location",
+        "Active Opportunities",
+        max_items=8,
     )
 
 
@@ -640,7 +736,7 @@ else:
 # ============================================================
 
 section_header(
-    "Current Experience Signals",
+    "Current Experience Snapshot",
     (
         "Experience classifications represented among "
         "active HJMI opportunities."
@@ -675,11 +771,12 @@ experience_data = (
 )
 
 
-st.bar_chart(
+hjmi_horizontal_bar(
     experience_data,
-    x="Experience Level",
-    y="Active Opportunities",
-    use_container_width=True,
+    "Experience Level",
+    "Active Opportunities",
+    max_items=7,
+    height=300,
 )
 
 
@@ -688,7 +785,7 @@ st.bar_chart(
 # ============================================================
 
 section_header(
-    "Graduate Market Signal",
+    "Current Graduate Snapshot",
     (
         "Current representation of explicitly graduate-friendly "
         "opportunities in the active HJMI dataset."
@@ -717,11 +814,12 @@ graduate_status = pd.DataFrame(
 )
 
 
-st.bar_chart(
+hjmi_horizontal_bar(
     graduate_status,
-    x="Classification",
-    y="Active Opportunities",
-    use_container_width=True,
+    "Classification",
+    "Active Opportunities",
+    max_items=2,
+    height=250,
 )
 
 
@@ -738,115 +836,22 @@ info_box(
 
 
 # ============================================================
-# WHAT CAN BE TRACKED NOW
+# TREND READINESS
 # ============================================================
 
-section_header(
-    "Current Trend Readiness",
-    (
-        "What HJMI can already measure and what requires "
-        "additional historical observations."
-    ),
-    "◇",
-)
+with st.expander("Trend readiness & future analysis", expanded=False):
+    st.markdown(
+        """
+        **Available now:** HJMI can track when records were first seen, when they
+        were last seen, whether they appeared in the latest collection, and which
+        records were newly discovered.
 
-
-readiness_cols = st.columns(3)
-
-
-with readiness_cols[0]:
-
-    insight_card(
-        "✓",
-        "Available Now",
-        "Opportunity History",
-        (
-            "HJMI retains first-seen, last-seen, Active, "
-            "Historical and New information for job records."
-        ),
+        **Still building:** reliable period-to-period changes in skills, locations,
+        graduate opportunities, experience requirements and salary transparency.
+        Those analyses require comparable historical snapshots collected
+        consistently over a longer observation window.
+        """
     )
-
-
-with readiness_cols[1]:
-
-    insight_card(
-        "◷",
-        "Building Over Time",
-        "Market Snapshots",
-        (
-            "Repeated daily collections will create stronger "
-            "evidence for changes in roles, skills, locations "
-            "and graduate opportunities."
-        ),
-    )
-
-
-with readiness_cols[2]:
-
-    insight_card(
-        "→",
-        "Future Analysis",
-        "Reliable Trends",
-        (
-            "Once enough comparable history exists, HJMI can "
-            "calculate changes between periods instead of "
-            "relying on a single snapshot."
-        ),
-    )
-
-
-# ============================================================
-# FUTURE TREND ENGINE
-# ============================================================
-
-section_header(
-    "HJMI Trend Intelligence Roadmap",
-    (
-        "The historical intelligence HJMI is designed "
-        "to build as the dataset grows."
-    ),
-    "📈",
-)
-
-
-roadmap_data = pd.DataFrame(
-    {
-        "Intelligence Area": [
-            "Opportunity Volume",
-            "New Job Activity",
-            "Skill Demand",
-            "Location Activity",
-            "Graduate Opportunities",
-            "Experience Requirements",
-            "Salary Transparency",
-        ],
-        "Current State": [
-            "Current snapshot available",
-            "First-seen tracking available",
-            "Current signal available",
-            "Current signal available",
-            "Current signal available",
-            "Current signal available",
-            "Disclosure tracking available",
-        ],
-        "Future Trend Capability": [
-            "Compare market snapshots over time",
-            "Measure discovery activity by period",
-            "Compare skill representation over time",
-            "Compare location representation over time",
-            "Track graduate-friendly representation",
-            "Track experience requirement changes",
-            "Track salary disclosure and validated values",
-        ],
-    }
-)
-
-
-st.dataframe(
-    roadmap_data,
-    use_container_width=True,
-    hide_index=True,
-)
 
 
 # ============================================================
