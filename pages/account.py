@@ -94,7 +94,7 @@ st.html(
 
     .hjmi-auth-intro {
         text-align: center;
-        margin: 10px auto 28px auto;
+        margin: 8px auto 20px auto;
         max-width: 620px;
         color: #8298a5;
         font-size: 14px;
@@ -103,7 +103,7 @@ st.html(
 
     .hjmi-auth-status {
         padding: 18px 20px;
-        margin: 18px 0 24px 0;
+        margin: 14px 0 18px 0;
         border-radius: 16px;
         border: 1px solid rgba(216, 173, 87, 0.18);
         background: rgba(12, 40, 49, 0.65);
@@ -124,7 +124,7 @@ st.html(
     }
 
     .hjmi-section-heading {
-        margin-top: 30px;
+        margin-top: 22px;
         margin-bottom: 6px;
         color: #f3f6f7;
         font-size: 24px;
@@ -135,7 +135,7 @@ st.html(
         color: #78909d;
         font-size: 13px;
         line-height: 1.7;
-        margin-bottom: 18px;
+        margin-bottom: 12px;
     }
 
     .hjmi-job-card {
@@ -219,7 +219,7 @@ st.html(
     }
 
     .hjmi-empty {
-        padding: 28px 22px;
+        padding: 22px 20px;
         margin-top: 15px;
         border-radius: 16px;
         text-align: center;
@@ -498,8 +498,8 @@ if is_authenticated():
         "MY HJMI",
         f"Welcome, {display_name}",
         (
-            "Your personal career space for recommended "
-            "opportunities, saved jobs and application tracking."
+            "Your personal career space for recommendations, "
+            "job alerts, saved opportunities and application tracking."
         ),
     )
 
@@ -619,8 +619,8 @@ if is_authenticated():
             </div>
 
             <div class="hjmi-section-subheading">
-                Current UAE technology opportunities matched
-                against signals in your HJMI Career Profile.
+                Current UAE technology opportunities ranked by
+                structured overlap with your HJMI Career Profile.
             </div>
             """
         )
@@ -733,9 +733,9 @@ if is_authenticated():
         else:
 
             st.caption(
-                "HJMI Match measures overlap between your "
-                "Career Profile and available job data. "
-                "It does not predict hiring or acceptance."
+                "Profile Match is a structured relevance score based on "
+                "skills, target role, specialization, experience and location. "
+                "It is not an employer score, hiring probability or application prediction."
             )
 
             st.divider()
@@ -870,8 +870,8 @@ if is_authenticated():
 
                 if not reasons_text:
                     reasons_text = (
-                        "Profile signals matched "
-                        "this opportunity."
+                        "Structured profile signals overlap "
+                        "with this opportunity."
                     )
 
 
@@ -904,7 +904,7 @@ if is_authenticated():
                             </span>
 
                             <span class="hjmi-match-score">
-                                HJMI Match {safe(match_score)}%
+                                Profile Match {safe(match_score)}%
                             </span>
                         </div>
 
@@ -1191,8 +1191,8 @@ if is_authenticated():
             </div>
 
             <div class="hjmi-section-subheading">
-                Newly discovered HJMI opportunities that match
-                signals in your Career Profile.
+                Opportunities newly discovered by HJMI that overlap
+                with signals in your Career Profile.
             </div>
             """
         )
@@ -1248,7 +1248,7 @@ if is_authenticated():
 
                 reasons_text = " • ".join(
                     str(reason) for reason in match_reasons
-                ) or "Profile signals matched this opportunity."
+                ) or "Structured profile signals overlap with this opportunity."
 
                 skills_html = render_match_skills(matched_skills)
                 read_label = "Read" if is_read else "New Alert"
@@ -1262,7 +1262,7 @@ if is_authenticated():
                         <div>
                             <span class="hjmi-match-badge">{safe(read_label)}</span>
                             <span class="hjmi-match-badge">{safe(match_label)}</span>
-                            <span class="hjmi-match-score">HJMI Match {safe(match_score)}%</span>
+                            <span class="hjmi-match-score">Profile Match {safe(match_score)}%</span>
                         </div>
                         <div class="hjmi-match-reason">
                             Why this matched: {safe(reasons_text)}
@@ -1337,8 +1337,8 @@ if is_authenticated():
             </div>
 
             <div class="hjmi-section-subheading">
-                Opportunities you saved while exploring the
-                UAE technology job market.
+                Opportunities you saved for later review.
+                Availability should be verified at the original source.
             </div>
             """
         )
@@ -1535,8 +1535,8 @@ if is_authenticated():
             </div>
 
             <div class="hjmi-section-subheading">
-                Track your progress after applying for
-                opportunities you discover through HJMI.
+                Keep your own application status and notes for
+                opportunities you choose to track.
             </div>
             """
         )
@@ -1874,10 +1874,10 @@ if is_authenticated():
     info_box(
         "Your HJMI Workspace",
         (
-            "Career Match uses your approved Career Profile "
-            "to identify relevant opportunities from the HJMI "
-            "job dataset. Match information represents profile "
-            "and job-data overlap, not hiring probability."
+            "Career Match uses your approved Career Profile to identify "
+            "relevant records in the HJMI dataset. Match information describes "
+            "structured profile-to-job overlap only; it does not represent "
+            "employer interest, acceptance probability or hiring likelihood."
         ),
         "👤",
     )
@@ -1923,8 +1923,8 @@ st.html(
     """
     <div class="hjmi-auth-intro">
         Your HJMI account is your personal space for
-        Career Match, saved jobs, application tracking,
-        career preferences and personalized opportunities.
+        Career Match, Smart Job Alerts, saved jobs,
+        application tracking and personalized opportunities.
     </div>
     """
 )
