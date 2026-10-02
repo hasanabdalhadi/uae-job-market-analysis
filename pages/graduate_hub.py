@@ -104,7 +104,15 @@ def hjmi_horizontal_bar(data, label_col, value_col="Opportunities", *, max_items
     else:
         tick_step = 50
     if height is None:
-        height = max(250, min(410, 75 + len(chart_data) * 38))
+        item_count = len(chart_data)
+        if item_count <= 2:
+            height = 175
+        elif item_count <= 4:
+            height = 205
+        elif item_count <= 6:
+            height = 235
+        else:
+            height = 270
     fig = px.bar(chart_data, x=value_col, y=label_col, orientation="h",
                  text=value_col, custom_data=[label_col, value_col])
     fig.update_traces(
@@ -113,7 +121,7 @@ def hjmi_horizontal_bar(data, label_col, value_col="Opportunities", *, max_items
         hovertemplate=f"<b>%{{customdata[0]}}</b><br>{value_col}: %{{customdata[1]:,.0f}}<extra></extra>",
     )
     fig.update_layout(
-        height=height, margin=dict(l=8, r=42, t=8, b=35),
+        height=height, margin=dict(l=8, r=38, t=4, b=28),
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         font=dict(color="#eaf2f8"), xaxis_title=value_col,
         yaxis_title=None, showlegend=False,
@@ -149,8 +157,11 @@ st.set_page_config(
 apply_theme()
 st.markdown(
     """<style>
-    div[data-testid="stVerticalBlock"] { gap: 0.75rem; }
-    div[data-testid="stPlotlyChart"] { margin-bottom: 0.25rem; }
+    div[data-testid="stVerticalBlock"] { gap: 0.55rem; }
+    div[data-testid="stPlotlyChart"] { margin-top: -0.15rem; margin-bottom: 0rem; }
+    div[data-testid="stElementContainer"]:has(div[data-testid="stPlotlyChart"]) {
+        margin-bottom: -0.15rem;
+    }
     </style>""",
     unsafe_allow_html=True,
 )
@@ -815,7 +826,7 @@ else:
         "Experience Level",
         "Opportunities",
         max_items=7,
-        height=300,
+        height=260,
     )
 
 
