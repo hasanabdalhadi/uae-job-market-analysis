@@ -25,6 +25,15 @@ from components.ui import (
     result_count,
 )
 
+from services.auth_service import (
+    is_authenticated,
+)
+
+from services.career_profile_service import (
+    get_career_profile,
+    profile_ready_for_matching,
+)
+
 from services.data_service import (
     load_jobs,
     get_active_jobs,
@@ -439,6 +448,211 @@ info_box(
     ),
     "ⓘ",
 )
+
+
+# ============================================================
+# PERSONAL SKILL INTELLIGENCE
+# ============================================================
+
+def _profile_list(value):
+    """Normalize Supabase profile list values without changing stored data."""
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple, set)):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str):
+        cleaned = value.strip()
+        if not cleaned:
+            return []
+        return [item.strip() for item in cleaned.replace(";", ",").split(",") if item.strip()]
+    return [str(value).strip()] if str(value).strip() else []
+
+
+def _canonical_skill_map(skill_index):
+    return {
+        str(skill).strip().lower(): str(skill).strip()
+        for skill in skill_index
+        if str(skill).strip()
+    }
+
+
+def _skill_opportunity_counts(jobs, skill_names):
+    """Count active records containing each canonical skill."""
+    wanted = {str(skill).strip().lower(): str(skill).strip() for skill in skill_names}
+    counts = {label: 0 for label in wanted.values()}
+    if jobs is None or jobs.empty or "skills" not in jobs.columns:
+        return counts
+
+    for value in jobs["skills"]:
+        present = {str(skill).strip().lower() for skill in parse_skills(value)}
+        for key, label in wanted.items():
+            if key in present:
+                counts[label] += 1
+    return counts
+
+
+st.markdown("---")
+section_header(
+    "My Skill Intelligence",
+    (
+        "Compare your Career Profile with the skills currently represented "
+        "across HJMI's active UAE opportunity records."
+    ),
+    "◎",
+)
+
+if not is_authenticated():
+    info_box(
+        "Personal intelligence is available with an HJMI account",
+        (
+            "Sign in and complete your Career Profile to compare your skills "
+            "with the current HJMI market dataset and identify evidence-based "
+            "skill gaps for your target roles."
+        ),
+        "🔐",
+    )
+else:
+    try:
+        career_profile = get_career_profile()
+    except Exception:
+        career_profile = None
+
+    if not career_profile:
+        info_box(
+            "Complete your Career Profile",
+            (
+                "Add your skills and target roles in My HJMI to unlock your "
+                "personal market coverage, shared skills and skill-gap analysis."
+            ),
+            "◎",
+        )
+    else:
+        profile_skills = _profile_list(career_profile.get("skills", []))
+        target_roles = _profile_list(career_profile.get("target_roles", []))
+        market_skill_map = _canonical_skill_map(skills_rank.index)
+
+        shared_skills = []
+        for skill in profile_skills:
+            canonical = market_skill_map.get(skill.lower())
+            if canonical and canonical not in shared_skills:
+                shared_skills.append(canonical)
+
+        coverage = (
+            len(shared_skills) / len(profile_skills) * 100
+            if profile_skills
+            else 0
+        )
+
+        # Skill gaps are derived only from active jobs that match a target-role
+        # phrase. If no target role is available, we deliberately avoid calling
+        # broad market popularity a personal gap.
+        target_jobs = active_jobs.iloc[0:0].copy()
+        if target_roles:
+            target_mask = pd.Series(False, index=active_jobs.index)
+            titles = active_jobs["job_title"].fillna("").astype(str)
+            for role in target_roles:
+                target_mask = target_mask | titles.str.contains(
+                    str(role), case=False, regex=False, na=False
+                )
+            target_jobs = active_jobs[target_mask].copy()
+
+        target_skill_counter = {}
+        if not target_jobs.empty:
+            for value in target_jobs["skills"]:
+                for skill in parse_skills(value):
+                    label = market_skill_map.get(str(skill).strip().lower(), str(skill).strip())
+                    if label:
+                        target_skill_counter[label] = target_skill_counter.get(label, 0) + 1
+
+        profile_skill_keys = {skill.lower() for skill in profile_skills}
+        missing_skills = [
+            (skill, count)
+            for skill, count in sorted(
+                target_skill_counter.items(), key=lambda item: item[1], reverse=True
+            )
+            if skill.lower() not in profile_skill_keys
+        ][:5]
+
+        shared_counts = _skill_opportunity_counts(active_jobs, shared_skills)
+        strongest_shared = sorted(
+            shared_counts.items(), key=lambda item: item[1], reverse=True
+        )
+
+        personal_cols = st.columns(3)
+        with personal_cols[0]:
+            market_metric(
+                "◎",
+                "Your Market Coverage",
+                f"{coverage:.0f}%",
+                "Share of your listed profile skills represented in the current active HJMI dataset.",
+            )
+        with personal_cols[1]:
+            market_metric(
+                "✓",
+                "Shared Market Skills",
+                f"{len(shared_skills):,}",
+                "Skills in your Career Profile that are also represented in current active HJMI opportunities.",
+            )
+        with personal_cols[2]:
+            market_metric(
+                "△",
+                "Target-Role Skill Gaps",
+                f"{len(missing_skills):,}" if target_roles and not target_jobs.empty else "—",
+                "Top structured skills found in matching target-role records but not listed in your profile.",
+            )
+
+        compare_left, compare_right = st.columns(2)
+
+        with compare_left:
+            st.markdown("### Profile vs UAE Market")
+            if not profile_skills:
+                st.caption("Add skills to your Career Profile to start the comparison.")
+            elif shared_skills:
+                shared_text = " • ".join(shared_skills[:10])
+                st.success(f"Shared skills: {shared_text}")
+                if strongest_shared:
+                    strongest_text = " • ".join(
+                        f"{skill} ({count})" for skill, count in strongest_shared[:5]
+                    )
+                    st.caption(
+                        "Strongest current market representation among your shared skills: "
+                        + strongest_text
+                    )
+            else:
+                st.info(
+                    "None of your currently listed profile skills are represented in HJMI's structured active-skill field yet."
+                )
+
+        with compare_right:
+            st.markdown("### Skill Gap Intelligence")
+            if not target_roles:
+                st.caption(
+                    "Add at least one target role to your Career Profile to calculate role-specific skill gaps."
+                )
+            elif target_jobs.empty:
+                st.caption(
+                    "HJMI does not currently have active records whose job titles match your target roles closely enough for a reliable gap comparison."
+                )
+            elif missing_skills:
+                for skill, count in missing_skills:
+                    st.markdown(f"**{skill}** — appears in {count:,} matching target-role record(s)")
+                st.caption(
+                    "These are dataset gaps, not hiring requirements. Learning a skill does not guarantee a job or a higher match score."
+                )
+            else:
+                st.success(
+                    "No additional structured skill gaps were identified from the current active records matching your target roles."
+                )
+
+        info_box(
+            "How personal skill intelligence is calculated",
+            (
+                "HJMI compares the skills saved in your Career Profile with its current structured active-job data. "
+                "Skill gaps are limited to active records whose job titles match your target-role phrases. "
+                "The result is a dataset comparison, not a prediction of hiring success or a complete statement of employer requirements."
+            ),
+            "ⓘ",
+        )
 
 
 # ============================================================
