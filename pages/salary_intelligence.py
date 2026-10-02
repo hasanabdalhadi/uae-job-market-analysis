@@ -5,6 +5,7 @@
 
 import pandas as pd
 import streamlit as st
+import plotly.express as px
 
 from components.theme import (
     apply_theme,
@@ -31,6 +32,92 @@ from services.data_service import (
 )
 
 
+
+# ============================================================
+# SALARY DISPLAY HELPERS
+# ============================================================
+
+def normalized_text_counts(series):
+    """Collapse case/spacing duplicates without changing the underlying records."""
+    cleaned = series.fillna("").astype(str).map(lambda x: " ".join(x.strip().split()))
+    cleaned = cleaned[cleaned.ne("")]
+    if cleaned.empty:
+        return pd.Series(dtype="int64")
+    frame = pd.DataFrame({"label": cleaned})
+    frame["key"] = frame["label"].str.casefold()
+    grouped = frame.groupby("key", sort=False)
+    counts = grouped.size()
+    labels = grouped["label"].agg(
+        lambda values: max(
+            values.tolist(),
+            key=lambda x: (sum(ch.isupper() for ch in x), len(x)),
+        )
+    )
+    return pd.Series(counts.values, index=labels.values, dtype="int64").sort_values(ascending=False)
+
+
+def hjmi_horizontal_bar(data, label_col, value_col="Opportunities", *, max_items=8, height=None):
+    """Compact HJMI count chart. This visualizes records, not salary amounts."""
+    if data is None or data.empty:
+        return
+    chart_data = data[[label_col, value_col]].copy()
+    chart_data[value_col] = pd.to_numeric(chart_data[value_col], errors="coerce").fillna(0)
+    chart_data = chart_data[chart_data[value_col] > 0]
+    chart_data = chart_data.sort_values(value_col, ascending=False).head(max_items)
+    if chart_data.empty:
+        return
+    chart_data = chart_data.iloc[::-1]
+    max_value = float(chart_data[value_col].max())
+    if max_value <= 10:
+        tick_step = 1
+    elif max_value <= 50:
+        tick_step = 5
+    elif max_value <= 100:
+        tick_step = 10
+    elif max_value <= 250:
+        tick_step = 25
+    else:
+        tick_step = 50
+    if height is None:
+        height = max(250, min(410, 75 + len(chart_data) * 38))
+    fig = px.bar(
+        chart_data, x=value_col, y=label_col, orientation="h",
+        text=value_col, custom_data=[label_col, value_col],
+    )
+    fig.update_traces(
+        marker_color="#d8ad57",
+        texttemplate="%{text:,.0f}",
+        textposition="outside",
+        cliponaxis=False,
+        hovertemplate=f"<b>%{{customdata[0]}}</b><br>{value_col}: %{{customdata[1]:,.0f}}<extra></extra>",
+    )
+    fig.update_layout(
+        height=height,
+        margin=dict(l=8, r=42, t=8, b=35),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color="#eaf2f8"),
+        xaxis_title=value_col,
+        yaxis_title=None,
+        showlegend=False,
+    )
+    fig.update_xaxes(
+        rangemode="tozero",
+        gridcolor="rgba(117,139,157,0.16)",
+        zeroline=False,
+        tickmode="linear",
+        tick0=0,
+        dtick=tick_step,
+        tickformat=",d",
+    )
+    fig.update_yaxes(gridcolor="rgba(0,0,0,0)")
+    st.plotly_chart(
+        fig,
+        use_container_width=True,
+        config={"displayModeBar": False, "displaylogo": False,
+                "responsive": True, "scrollZoom": False},
+    )
+
 # ============================================================
 # PAGE CONFIG
 # ============================================================
@@ -48,6 +135,13 @@ st.set_page_config(
 # ============================================================
 
 apply_theme()
+st.markdown(
+    """<style>
+    div[data-testid="stVerticalBlock"] { gap: 0.75rem; }
+    div[data-testid="stPlotlyChart"] { margin-bottom: 0.25rem; }
+    </style>""",
+    unsafe_allow_html=True,
+)
 
 
 # ============================================================
@@ -285,11 +379,12 @@ salary_status_data = pd.DataFrame(
 )
 
 
-st.bar_chart(
+hjmi_horizontal_bar(
     salary_status_data,
-    x="Salary Status",
-    y="Opportunities",
-    use_container_width=True,
+    "Salary Status",
+    "Opportunities",
+    max_items=2,
+    height=250,
 )
 
 
@@ -309,10 +404,10 @@ info_box(
 # ============================================================
 
 section_header(
-    "Salary Data Snapshot",
+    "Salary Disclosure Snapshot",
     (
-        "A descriptive view of where disclosed salary "
-        "information currently appears in the dataset."
+        "A descriptive view of where salary-disclosed records "
+        "currently appear in the dataset."
     ),
     "💰",
 )
@@ -331,11 +426,8 @@ if salary_jobs.empty:
 
 else:
 
-    company_counts = (
+    company_counts = normalized_text_counts(
         salary_jobs["company"]
-        .replace("", pd.NA)
-        .dropna()
-        .value_counts()
     )
 
 
@@ -347,11 +439,8 @@ else:
     )
 
 
-    role_counts = (
+    role_counts = normalized_text_counts(
         salary_jobs["job_title"]
-        .replace("", pd.NA)
-        .dropna()
-        .value_counts()
     )
 
 
@@ -454,7 +543,7 @@ else:
 # ============================================================
 
 section_header(
-    "Salary Transparency by Location",
+    "Salary Disclosure Coverage by Location",
     (
         "Locations represented among active opportunities "
         "that currently contain salary information."
@@ -481,7 +570,7 @@ else:
         .replace("", pd.NA)
         .dropna()
         .value_counts()
-        .head(12)
+        .head(8)
         .rename_axis("Location")
         .reset_index(name="Salary-Disclosed Jobs")
     )
@@ -500,11 +589,11 @@ else:
 
     else:
 
-        st.bar_chart(
+        hjmi_horizontal_bar(
             salary_by_location,
-            x="Location",
-            y="Salary-Disclosed Jobs",
-            use_container_width=True,
+            "Location",
+            "Salary-Disclosed Jobs",
+            max_items=8,
         )
 
 
@@ -513,7 +602,7 @@ else:
 # ============================================================
 
 section_header(
-    "Salary Transparency by Role",
+    "Salary Disclosure Coverage by Role",
     (
         "Job-title labels most represented among active "
         "records that contain salary information."
@@ -536,11 +625,8 @@ if salary_jobs.empty:
 else:
 
     salary_by_role = (
-        salary_jobs["job_title"]
-        .replace("", pd.NA)
-        .dropna()
-        .value_counts()
-        .head(15)
+        role_counts
+        .head(8)
         .rename_axis("Job Role")
         .reset_index(name="Salary-Disclosed Jobs")
     )
@@ -548,11 +634,11 @@ else:
 
     if not salary_by_role.empty:
 
-        st.bar_chart(
+        hjmi_horizontal_bar(
             salary_by_role,
-            x="Job Role",
-            y="Salary-Disclosed Jobs",
-            use_container_width=True,
+            "Job Role",
+            "Salary-Disclosed Jobs",
+            max_items=8,
         )
 
 
@@ -561,7 +647,7 @@ else:
 # ============================================================
 
 section_header(
-    "Salary Transparency by Company",
+    "Salary Disclosure Coverage by Company",
     (
         "Companies most represented among active records "
         "that currently contain salary information."
@@ -584,11 +670,8 @@ if salary_jobs.empty:
 else:
 
     salary_by_company = (
-        salary_jobs["company"]
-        .replace("", pd.NA)
-        .dropna()
-        .value_counts()
-        .head(15)
+        company_counts
+        .head(8)
         .rename_axis("Company")
         .reset_index(name="Salary-Disclosed Jobs")
     )
@@ -596,11 +679,11 @@ else:
 
     if not salary_by_company.empty:
 
-        st.bar_chart(
+        hjmi_horizontal_bar(
             salary_by_company,
-            x="Company",
-            y="Salary-Disclosed Jobs",
-            use_container_width=True,
+            "Company",
+            "Salary-Disclosed Jobs",
+            max_items=8,
         )
 
 
@@ -609,7 +692,7 @@ else:
 # ============================================================
 
 section_header(
-    "Salary Transparency by Experience",
+    "Salary Disclosure Coverage by Experience",
     (
         "Experience classifications represented among active "
         "records that contain salary information."
@@ -655,11 +738,12 @@ else:
     )
 
 
-st.bar_chart(
+hjmi_horizontal_bar(
     salary_experience,
-    x="Experience Level",
-    y="Salary-Disclosed Jobs",
-    use_container_width=True,
+    "Experience Level",
+    "Salary-Disclosed Jobs",
+    max_items=7,
+    height=300,
 )
 
 
@@ -824,57 +908,14 @@ if not undisclosed_jobs.empty:
 # FUTURE SALARY ANALYTICS
 # ============================================================
 
-section_header(
-    "Salary Intelligence Roadmap",
-    (
-        "What HJMI can analyze as salary data becomes "
-        "more structured and reliable."
-    ),
-    "◇",
-)
-
-
-roadmap_cols = st.columns(3)
-
-
-with roadmap_cols[0]:
-
-    insight_card(
-        "1",
-        "Normalize",
-        "Salary Formats",
-        (
-            "Convert reliable disclosed salary values into "
-            "consistent AED periods without changing the "
-            "original source information."
-        ),
-    )
-
-
-with roadmap_cols[1]:
-
-    insight_card(
-        "2",
-        "Compare",
-        "Comparable Records",
-        (
-            "Analyze salary ranges by role, location and "
-            "experience only when enough comparable records "
-            "are available."
-        ),
-    )
-
-
-with roadmap_cols[2]:
-
-    insight_card(
-        "3",
-        "Track",
-        "Salary Trends",
-        (
-            "Measure changes over time after HJMI builds "
-            "sufficient historical salary observations."
-        ),
+with st.expander("Future salary analytics", expanded=False):
+    st.markdown(
+        """
+        HJMI will add salary-range comparisons only after disclosed values can be
+        normalized reliably across currency, pay period and range formats. Until
+        then, this page measures **salary disclosure coverage**, not compensation
+        levels, and does not estimate missing salaries.
+        """
     )
 
 
