@@ -162,6 +162,21 @@ st.markdown(
         line-height: 1.65;
     }
 
+    /* CTA directly below each Start with HJMI card */
+    .hjmi-start-card + div {
+        margin-top: -0.20rem;
+    }
+
+    div[data-testid="stPageLink"] a {
+        border-radius: 11px;
+    }
+
+    /* Keep Start with HJMI cards compact and visually connected */
+    .hjmi-start-card {
+        min-height: 132px;
+        margin-bottom: -0.35rem;
+    }
+
     @media (max-width: 800px) {
         .hjmi-home-hero {
             padding: 25px 22px;
@@ -411,7 +426,7 @@ with start_cols[0]:
         """,
         unsafe_allow_html=True,
     )
-    st.page_link("pages/find_jobs.py", label="Find Jobs", icon="🔎", use_container_width=True)
+    st.page_link("pages/find_jobs.py", label="Explore Jobs", icon="🔎", use_container_width=True)
 
 with start_cols[1]:
     st.markdown(
@@ -427,7 +442,7 @@ with start_cols[1]:
         """,
         unsafe_allow_html=True,
     )
-    st.page_link("pages/career_profile.py", label="Career Profile", icon="🎯", use_container_width=True)
+    st.page_link("pages/career_profile.py", label="Build Career Profile", icon="🎯", use_container_width=True)
 
 with start_cols[2]:
     st.markdown(
@@ -443,12 +458,14 @@ with start_cols[2]:
         """,
         unsafe_allow_html=True,
     )
-    st.page_link("pages/graduate_hub.py", label="Graduate Hub", icon="🎓", use_container_width=True)
+    st.page_link("pages/graduate_hub.py", label="Open Graduate Hub", icon="🎓", use_container_width=True)
 
 
 # ============================================================
 # NEW OPPORTUNITIES — COMPACT PREVIEW
 # ============================================================
+
+st.markdown("<div style='height:2px'></div>", unsafe_allow_html=True)
 
 section_header(
     "Latest Discoveries",
