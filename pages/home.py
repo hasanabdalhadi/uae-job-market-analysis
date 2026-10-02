@@ -162,20 +162,6 @@ st.markdown(
         line-height: 1.65;
     }
 
-    /* CTA directly below each Start with HJMI card */
-    .hjmi-start-card + div {
-        margin-top: -0.20rem;
-    }
-
-    div[data-testid="stPageLink"] a {
-        border-radius: 11px;
-    }
-
-    /* Keep Start with HJMI cards compact and visually connected */
-    .hjmi-start-card {
-        min-height: 132px;
-        margin-bottom: -0.35rem;
-    }
 
     @media (max-width: 800px) {
         .hjmi-home-hero {
@@ -413,52 +399,64 @@ section_header(
 start_cols = st.columns(3)
 
 with start_cols[0]:
-    st.markdown(
-        """
-        <div class="hjmi-start-card">
+    with st.container(border=True):
+        st.markdown(
+            """
             <div class="hjmi-start-label">DISCOVER</div>
             <div class="hjmi-start-title">Find UAE Tech Opportunities</div>
             <div class="hjmi-start-copy">
                 Search active opportunities by role, company, location,
                 skill and experience.
             </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.page_link("pages/find_jobs.py", label="Explore Jobs", icon="🔎", use_container_width=True)
+            """,
+            unsafe_allow_html=True,
+        )
+        st.page_link(
+            "pages/find_jobs.py",
+            label="Explore Jobs",
+            icon="🔎",
+            use_container_width=True,
+        )
 
 with start_cols[1]:
-    st.markdown(
-        """
-        <div class="hjmi-start-card">
+    with st.container(border=True):
+        st.markdown(
+            """
             <div class="hjmi-start-label">PERSONALIZE</div>
             <div class="hjmi-start-title">Build Your Career Intelligence</div>
             <div class="hjmi-start-copy">
                 Create your career profile to unlock profile matching,
                 recommendations and your personal HJMI workspace.
             </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.page_link("pages/career_profile.py", label="Build Career Profile", icon="🎯", use_container_width=True)
+            """,
+            unsafe_allow_html=True,
+        )
+        st.page_link(
+            "pages/career_profile.py",
+            label="Build Career Profile",
+            icon="🎯",
+            use_container_width=True,
+        )
 
 with start_cols[2]:
-    st.markdown(
-        """
-        <div class="hjmi-start-card">
+    with st.container(border=True):
+        st.markdown(
+            """
             <div class="hjmi-start-label">EARLY CAREER</div>
             <div class="hjmi-start-title">Explore Graduate Intelligence</div>
             <div class="hjmi-start-copy">
                 Focus on explicitly identified graduate-friendly opportunities,
                 skills, experience and employers.
             </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.page_link("pages/graduate_hub.py", label="Open Graduate Hub", icon="🎓", use_container_width=True)
+            """,
+            unsafe_allow_html=True,
+        )
+        st.page_link(
+            "pages/graduate_hub.py",
+            label="Open Graduate Hub",
+            icon="🎓",
+            use_container_width=True,
+        )
 
 
 # ============================================================
